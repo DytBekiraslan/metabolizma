@@ -1,0 +1,328 @@
+{
+   "checksum": "cc5af1b3eecfc9f7882f70f8a36dbb95",
+   "roots": {
+      "bookmark_bar": {
+         "children": [ {
+            "date_added": "13408755337740722",
+            "date_last_used": "0",
+            "guid": "bf06238e-535c-4103-abe2-cb5ca649418d",
+            "id": "31",
+            "name": "Amazon.co.uk - Online Shopping",
+            "show_icon": false,
+            "source": "oem_preload",
+            "type": "url",
+            "url": "http://www.amazon.com/gp/ubp/oneButton/config/redirectHome?tagbase=hpbus-ubpl&ref=aagateway-businesspc-hp",
+            "visit_count": 0
+         }, {
+            "date_added": "13408755337740597",
+            "date_last_used": "0",
+            "guid": "c1faf274-c1a6-4a07-9d5c-63c8a1477934",
+            "id": "30",
+            "name": "Booking.com",
+            "show_icon": false,
+            "source": "oem_preload",
+            "type": "url",
+            "url": "https://js.redirect.hp.com/jumpstation?bd=booking&c=222&locale=*&pf=*&tp=edge&TYPE=3",
+            "visit_count": 0
+         }, {
+            "date_added": "13408755337740466",
+            "date_last_used": "0",
+            "guid": "06e3798d-e375-43c9-8f45-14fdef9b40cb",
+            "id": "29",
+            "name": "Express VPN",
+            "show_icon": false,
+            "source": "oem_preload",
+            "type": "url",
+            "url": "https://js.redirect.hp.com/jumpstation?bd=expressvpn&c=*&locale=en_us&pf=*&s=*&tp=edge",
+            "visit_count": 0
+         }, {
+            "date_added": "13408755337740322",
+            "date_last_used": "0",
+            "guid": "bfac1258-f7c1-4dbd-8b70-cd73c3906d7e",
+            "id": "28",
+            "name": "McAfee Security",
+            "show_icon": false,
+            "source": "oem_preload",
+            "type": "url",
+            "url": "https://www.mcafee.com/consumer/v/browserfav/hp.html",
+            "visit_count": 0
+         }, {
+            "date_added": "13408755337740007",
+            "date_last_used": "0",
+            "guid": "338a78bf-e2d9-4413-b5a7-46dcd526bd2a",
+            "id": "27",
+            "name": "LastPass password manager",
+            "show_icon": false,
+            "source": "oem_preload",
+            "type": "url",
+            "url": "https://js.redirect.hp.com/jumpstation?bd=lastpass&c=222&locale=*&pf=*&tp=edge&TYPE=3",
+            "visit_count": 0
+         }, {
+            "date_added": "13313458760644590",
+            "date_last_used": "13384426180360989",
+            "guid": "5d88093d-4da0-4ad3-aa97-bb8fe3b36c44",
+            "id": "11",
+            "name": "EUROPASS",
+            "show_icon": false,
+            "source": "sync",
+            "type": "url",
+            "url": "https://europa.eu/europass/eportfolio/screen/cv-editor?lang=tr",
+            "visit_count": 1
+         }, {
+            "date_added": "13314136194418266",
+            "date_last_used": "13408061376594922",
+            "guid": "f0b683a0-45d4-4e05-b4d4-6becd4d468af",
+            "id": "12",
+            "name": "Ege Üniversitesi Bilgi Paketi / Ders Kataloğu",
+            "show_icon": false,
+            "source": "sync",
+            "type": "url",
+            "url": "https://ebp.ege.edu.tr/DereceProgramlari/Detay/1/61031/8142/932001",
+            "visit_count": 2
+         }, {
+            "date_added": "13346098681326462",
+            "date_last_used": "13350107641380061",
+            "guid": "8a6abadd-197a-4231-b830-c38095438c02",
+            "id": "13",
+            "name": "Beş Kardeş 3. Bölüm izle - Dizi izle",
+            "show_icon": false,
+            "source": "sync",
+            "type": "url",
+            "url": "https://www.diziizle.day/bes-kardes/bolum-3/",
+            "visit_count": 0
+         }, {
+            "date_added": "13354503347144329",
+            "date_last_used": "0",
+            "guid": "55f994fd-00a8-4596-a826-b141ce527a63",
+            "id": "14",
+            "name": "ProductionCrate",
+            "show_icon": false,
+            "source": "sync",
+            "type": "url",
+            "url": "https://user.productioncrate.com/member",
+            "visit_count": 0
+         }, {
+            "date_added": "13355010369462134",
+            "date_last_used": "0",
+            "guid": "b752e73f-8285-4fb8-9b6a-8b9902274455",
+            "id": "15",
+            "meta_info": {
+               "power_bookmark_meta": ""
+            },
+            "name": "100'den fazla ücretsiz After Effects şablonları",
+            "show_icon": false,
+            "source": "sync",
+            "type": "url",
+            "url": "https://www.motionelements.com/tr/free/after-effects-templates",
+            "visit_count": 0
+         }, {
+            "date_added": "13355185693093630",
+            "date_last_used": "0",
+            "guid": "0e9eec8d-5934-43ce-9872-50c78b5055e0",
+            "id": "16",
+            "meta_info": {
+               "power_bookmark_meta": ""
+            },
+            "name": "After Effects Expression Code List and Example",
+            "show_icon": false,
+            "source": "sync",
+            "type": "url",
+            "url": "https://www.blog.motionisland.com/after-effects-expressions-list-and-examples/",
+            "visit_count": 0
+         }, {
+            "date_added": "13355272248976099",
+            "date_last_used": "0",
+            "guid": "f11945cc-9b7d-422e-9e89-3823bd89bc83",
+            "id": "17",
+            "meta_info": {
+               "power_bookmark_meta": ""
+            },
+            "name": "Stroke Logo Animation in After Effects - After Effects Tutorial (Simple Logo animation) - YouTube",
+            "show_icon": false,
+            "source": "sync",
+            "type": "url",
+            "url": "https://www.youtube.com/watch?v=r0OTQCvD92Y",
+            "visit_count": 0
+         }, {
+            "date_added": "13356205364159630",
+            "date_last_used": "0",
+            "guid": "54e5b39b-6090-4c78-a3d1-403d7a85731a",
+            "id": "18",
+            "meta_info": {
+               "power_bookmark_meta": ""
+            },
+            "name": "Şablonlar",
+            "show_icon": false,
+            "source": "sync",
+            "type": "url",
+            "url": "https://www.canva.com/templates/?query=d%C3%BCnya-haritas%C4%B1",
+            "visit_count": 0
+         }, {
+            "date_added": "13356741177492483",
+            "date_last_used": "0",
+            "guid": "18ecc06f-d8eb-4cf2-b080-6e7ae425af9a",
+            "id": "19",
+            "meta_info": {
+               "power_bookmark_meta": ""
+            },
+            "name": "İŞ",
+            "show_icon": false,
+            "source": "sync",
+            "type": "url",
+            "url": "https://telusinternational.headway.ai/searchResults/Personalized%20internet%20ads%20assessor",
+            "visit_count": 0
+         }, {
+            "date_added": "13358444826394293",
+            "date_last_used": "0",
+            "guid": "12fa32d0-6746-44a9-b372-2d4e4154a714",
+            "id": "20",
+            "meta_info": {
+               "power_bookmark_meta": ""
+            },
+            "name": "PDF'den Word'e Dönüştürücü - %100 Ücretsiz",
+            "show_icon": false,
+            "source": "sync",
+            "type": "url",
+            "url": "https://smallpdf.com/tr/pdf-to-word#r=result&t=d924756ca8cae4ec08d1f4e7e46c6ea7&i=convert-to-word",
+            "visit_count": 0
+         }, {
+            "date_added": "13361798276747708",
+            "date_last_used": "0",
+            "guid": "20ecdc7f-3371-4041-8e98-cc2f95a5f8f8",
+            "id": "21",
+            "meta_info": {
+               "power_bookmark_meta": ""
+            },
+            "name": "Apple İşletme Yönetimi",
+            "show_icon": false,
+            "source": "sync",
+            "type": "url",
+            "url": "https://business.apple.com/#/main/preferences/organizationsettings",
+            "visit_count": 0
+         }, {
+            "date_added": "13384050192461002",
+            "date_last_used": "0",
+            "guid": "47af3a70-5a06-43cb-951d-81a261afee40",
+            "id": "22",
+            "meta_info": {
+               "power_bookmark_meta": ""
+            },
+            "name": "Ulusal Televizyon Kanalları",
+            "show_icon": false,
+            "source": "sync",
+            "type": "url",
+            "url": "https://tv.canlitv.vip/kategori/ulusal",
+            "visit_count": 1
+         }, {
+            "date_added": "13408120560379134",
+            "date_last_used": "0",
+            "guid": "b80cf3b0-3807-41e7-99a5-d8fb1deb10c2",
+            "id": "23",
+            "name": "Jotform AI Agent Builder",
+            "show_icon": false,
+            "source": "sync",
+            "type": "url",
+            "url": "https://www.jotform.com/agent/build/019aa18bd979703d996105d22009fe166f45/train",
+            "visit_count": 1
+         }, {
+            "date_added": "13408400313895685",
+            "date_last_used": "0",
+            "guid": "c9647fd2-b48b-426c-a28b-01d0c7f4f30f",
+            "id": "24",
+            "name": "dytbekiraslan's apps · Streamlit",
+            "show_icon": false,
+            "source": "sync",
+            "type": "url",
+            "url": "https://share.streamlit.io/?utm_source=streamlit&utm_medium=referral&utm_campaign=main&utm_content=-ss-streamlit-io-topright",
+            "visit_count": 1
+         }, {
+            "date_added": "13408755017761934",
+            "date_last_used": "0",
+            "guid": "01bf5471-e247-46a4-af38-b9d47d1833dc",
+            "id": "10",
+            "name": "Amazon.co.uk - Online Shopping",
+            "show_icon": false,
+            "source": "oem_preload",
+            "type": "url",
+            "url": "http://www.amazon.com/gp/ubp/oneButton/config/redirectHome?tagbase=hpbus-ubpl&ref=aagateway-businesspc-hp",
+            "visit_count": 0
+         }, {
+            "date_added": "13408755017761765",
+            "date_last_used": "0",
+            "guid": "306f1a66-c24a-45b5-b6d9-4be0253a1417",
+            "id": "9",
+            "name": "Booking.com",
+            "show_icon": false,
+            "source": "oem_preload",
+            "type": "url",
+            "url": "https://js.redirect.hp.com/jumpstation?bd=booking&c=222&locale=*&pf=*&tp=edge&TYPE=3",
+            "visit_count": 0
+         }, {
+            "date_added": "13408755017761582",
+            "date_last_used": "0",
+            "guid": "f54363f0-84ae-4dce-9a90-b60d29149fc2",
+            "id": "8",
+            "name": "Express VPN",
+            "show_icon": false,
+            "source": "oem_preload",
+            "type": "url",
+            "url": "https://js.redirect.hp.com/jumpstation?bd=expressvpn&c=*&locale=en_us&pf=*&s=*&tp=edge",
+            "visit_count": 0
+         }, {
+            "date_added": "13408755017761319",
+            "date_last_used": "0",
+            "guid": "8459c7dc-e0fd-497e-903e-aa2a48e0ff03",
+            "id": "7",
+            "name": "McAfee Security",
+            "show_icon": false,
+            "source": "oem_preload",
+            "type": "url",
+            "url": "https://www.mcafee.com/consumer/v/browserfav/hp.html",
+            "visit_count": 0
+         }, {
+            "date_added": "13408755017735462",
+            "date_last_used": "0",
+            "guid": "1954fc15-432c-48ba-9e9c-aa5194e78cee",
+            "id": "6",
+            "name": "LastPass password manager",
+            "show_icon": false,
+            "source": "oem_preload",
+            "type": "url",
+            "url": "https://js.redirect.hp.com/jumpstation?bd=lastpass&c=222&locale=*&pf=*&tp=edge&TYPE=3",
+            "visit_count": 0
+         } ],
+         "date_added": "13408755015220607",
+         "date_last_used": "0",
+         "date_modified": "13408755337740722",
+         "guid": "0bc5d13f-2cba-5d74-951f-3f233fe6c908",
+         "id": "1",
+         "name": "Sık kullanılanlar çubuğu",
+         "source": "unknown",
+         "type": "folder"
+      },
+      "other": {
+         "children": [  ],
+         "date_added": "13408755015220607",
+         "date_last_used": "0",
+         "date_modified": "0",
+         "guid": "82b081ec-3dd3-529c-8475-ab6c344590dd",
+         "id": "2",
+         "name": "Diğer sık kullanılanlar",
+         "source": "unknown",
+         "type": "folder"
+      },
+      "synced": {
+         "children": [  ],
+         "date_added": "13408755015220607",
+         "date_last_used": "0",
+         "date_modified": "0",
+         "guid": "4cf2e351-0e85-532b-bb37-df045d8f8d0f",
+         "id": "3",
+         "name": "Mobil sık kullanılanlar",
+         "source": "unknown",
+         "type": "folder"
+      }
+   },
+   "sync_metadata": "CjEKDgiIgQISCBGrObKaAQAAEgAqGFFPZk82aGtPalpsaXkvdlhyRWsyckE9PUgDoAYHEo4BCAISiQEKHFljU1RvbnZFU1B3cUNzNEwyY3JWaHY2OEw5OD0SJDMyN2Q0OWFjLTkyZGQtNTg1NC1hNTM1LTZlMDk4YWFhYWRlNhgAIAAoADDQ7PWS7DA4iu71kuwwQIru9ZLsMEocb1BWa2h3QlJiVjY1S0NXUjIrSU9OSFdvT3U4PVoAZQAAAADCPgJgABKtAQgOEqgBChxROFJUam9vZ29VWmQwUmdaclRMYllTbHhJbFk9EiQ1NWY5OTRmZC0wMGE4LTQ1OTYtYTgyNi1iMTQxY2U1MjdhNjMYACAAKAAwl9mimPQxOKL33K3iMUCi99yt4jFKHHZGR0JJZUQ5MTJLQVlKZm1vTmw3Y212YkJabz1aHyId3EplcFozSnQ2MkVNcTJxbjYxd3N6a0VQN0xmcz1lixwyrcI+AmAFEq4BCBYSqQEKHEVuUnZkbFVrb0tMbHpaV3d3enloUU1XcG4rYz0SJDQ3YWYzYTcwLTVhMDYtNDNjYi05NTFkLTgxYTI2MWFmZWU0MBgAIAAoADC+m+G20DI4xp3httAyQMad4bbQMkocbHZqTjRVTkMvNUhuTkhLa2Jna3pNdFJaR3c4PVogIh7/um1Sd1owZFBkc3FRVWhXakFDMEpPaTJpUEorUT1lK6dujsI+AmAFEq0BCA8SqAEKHDdBd2RnMXZ4cUhLSFI3NlZid3V6d2hpdndaRT0SJGI3NTJlNzNmLTgyODUtNGZiOC05YjZhLThiOTkwMjI3NDQ1NRgAIAAoADCW2aKY9DE4qfa+n+QxQKn2vp/kMUocK1gwOEpZNnMvdFVuR2pZK1J2NDI4RnlwejVzPVofIh3uTGlaaU83K0RuZEY5Z2NDMHN1bEpiT21NN3k4PWVm9xLgwj4CYAUSrQEIEhKoAQoccEZwai94bkVkQjROenZYNk14NFdFQ1VnOWxnPRIkNTRlNWIzOWItNjA5MC00Yzc4LWEzZDEtNDAzZDdhODU3MzFhGAAgACgAMMPEx5OjMzju5afZ6DFA7uWn2egxShw0N1FLQmVDNUJBUEd0TGZydzloQytSbVhGTlE9Wh8iHf02aDhha3NySjVvRkpsOWRoTjd6OHlvcE8vbmM9ZXYfjuHCPgJgBRKsAQgLEqcBChxoYStkaEQ1clZIRGVaeWppSVNWTWN4aXNYeXM9EiQ1ZDg4MDkzZC00ZGEwLTRhZDMtYWE5Ny1iYjhmZTNiMzZjNDQYACAAKAAwp5aH6tEyOJCy9eb7MECQsvXm+zBKHGNSRmw1K3U4MDRReXpETXFmYVJNaFVhdWtDUT1aHiIcVUlWNTF1bkdBajFyOGRWeDRGeUk0SnB2djBjPWUF1c9wwj4CYAUSrAEIDBKnAQoca3ZTdUJ2OTUrQ1ZUQ25oMVNoZ2ZCUWNDL21RPRIkZjBiNjgzYTAtNDVkNC00ZTA1LWI0ZDQtNmJlY2Q0ZDQ2OGFmGAAgACgAMMXJl/CpMziosvXm+zBAqLL15vswShx6ZWs2ZzBmMnN4aVgvYXNlM2lhSEZRaGJ5K0E9Wh4iHHFoeDZ1ZFgvYmdVd1FlRjJXeXNnVng5NWRmWT1l3kQKZcI+AmAFEo4BCAMSiQEKHG5qZ0R1ODhlQ3J2WHA4NnBEN2ZIR2NxRnA4OD0SJDdjMTA4NzE2LWU5NTEtNWEyYi1hMWNmLTFjMWU0NDE1YjFlNRgAIAAoADDV7PWS7DA45e/1kuwwQOXv9ZLsMEoceXpOQjAxY241NEE3Y1JVMHVUKy9QZ21UdFVvPVoAZQAAAADCPgJgABKtAQgNEqgBChxyZXA3empEem5UZHZ0dUYzN0l0ajVKazBTdlk9EiQ4YTZhYmFkZC0xOTdhLTQyMzEtYjgzMC1jMzgwOTU0MzhjMDIYACAAKAAwxrvfltkxONnuiIbDMUDZ7oiGwzFKHGRwSmlCak5pMkNtNURLVk9oYUh6V3AyckJsWT1aHyIduFlpdVdVc3UxdVJybTZ0VjBYYk5QNjdYYmNuMD1lnJ+szsI+AmAFEq0BCBESqAEKHGNtaVZiaTUrZVJ6cFF3ZE9xYTZNMkJ5Z1l5RT0SJGYxMTk0NWNjLTliN2QtNDIyZS05ZTg5LTM4MjNiZDg5YmM4MxgAIAAoADCR2aKY9DE4/PyunOUxQPz8rpzlMUocS0lTajhlZ011MU5ZSmExVmcydkFGUlp1TjFZPVofIh37NUZkWDNPdjMyeXVKTjhyUWxTcDl2ZzhoU0pZPWU4+Tkzwj4CYAUSrQEIEBKoAQocRWs0NkhLcXpuaFhnR1RDakhZLzJSWHRhVGxBPRIkMGU5ZWVjOGQtNTkzNC00M2NlLTk4NzItNTBjNzhiNTA1NWUwGAAgACgAMJTZopj0MTim94vz5DFApveL8+QxShxZQWV4ZDdJN2gybExOUlNUc2pxbGE2QWo3M0E9Wh8iHfdaSjFIUTIvTFJHV1pjdUszVGdXZGdhSFpiR2M9ZbSlmZrCPgJgBRKOAQgBEokBChx5eEovNmZ2a2VjcjdrcDVFUXpCNHRXTHBkYkU9EiQ2ZWI0ODQxMC1jNzk0LTU4YTUtYmFhOS1hYjY2NTk4ZDQxMDIYACAAKAAwz+z1kuwwOOrt9ZLsMEDq7fWS7DBKHGFSQ1dMZ2hGOWI1SW5xS0lEdnVKL2p2UWtGYz1aAGUAAAAAwj4CYAASrgEIFxKpAQocVGtYZmVXdG9HR2ljbVp4Wnl5TENpZWo0MDBBPRIkYjgwY2YzYjAtMzgwNy00MWU3LTk5YTUtZDhmYjFkZWIxMGMyGAAgACgAMKbys4yqMzjs8rOMqjNA7PKzjKozShxGV04yYWpzemRqOWJ1ZC84ZEdobzZBZEtUdUk9WiAiHv/deEhDTktsV2Q3VTVoSS9NeFR5eHpzTVhSOEM0PWW4Xr/3wj4CYAUSrQEIFBKoAQocb0VzT3FPd2pheFNtTmNrb2FRazdyVVRONG1nPRIkMTJmYTMyZDAtNjc0Ni00NGE5LWIzNzItMmQ0ZTQxNTRhNzE0GAAgACgAMJLZopj0MTiz3JWF8TFAs9yVhfExShxRUHptRy8zSGlQbUlxbWs4NStMN29yYU9FdlU9Wh8iHf9rdnNFVjZUT3FNNW5LVmVGQ3pMMUNhT0svazg9ZeqUj0bCPgJgBRKtAQgVEqgBChxuVU91TS9xMXhRNHRySTNTSmI3WUlwSUliUDQ9EiQyMGVjZGM3Zi0zMzcxLTQwNDEtOGU5OC1jYzJmOTVhNWY4ZjgYACAAKAAwgY6cxP0xOL+OnMT9MUC/jpzE/TFKHE9RWnFORXluVzB6cURXUWhJS2gyQW5GUis0Yz1aHyId/3Q0TmFRWndPZXo0aTJEdFJNYStGcjNWaUlQdz1leAEJnMI+AmAFEq0BCBMSqAEKHGpRZ2l6bnhXTkNUZ24zdnVEWGRrV2Y4Qnd6Yz0SJDE4ZWNjMDZmLWQ4ZWItNGNmMi1iMDgwLTZlN2FlNDI1YWY5YRgAIAAoADCT2aKY9DE4kJrn2OoxQJCa59jqMUocKzlodnBMSFpVQ0NvdEhyVTVKU3JsS3d4K01rPVofIh3+dTJUckhyT3RDcTduUVN0K2s0dEZHSjdOS2djPWUnEyg7wj4CYAUSrgEIGBKpAQocQ0Z0dHE2SjhFQy9KLzFjaVl4OFloUkd1MDlZPRIkYzk2NDdmZDItYjQ4Yi00MjZjLWEyOGItMDFkMGM3ZjRmMzBmGAAgACgAMJDW5pGrMziT1+aRqzNAk9fmkaszShwwQTBEWU9BVnRTTERtMzlMVTFpRHBQcWxUNzg9WiAiHv/uNjlaZ2xWWnRTa0F5b0pxVCs0Q1VtcTQ4YnlrPWUYFgGJwj4CYAUwADgA",
+   "version": 1
+}

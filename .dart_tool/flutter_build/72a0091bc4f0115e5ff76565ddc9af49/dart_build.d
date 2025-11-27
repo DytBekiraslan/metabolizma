@@ -1,0 +1,1 @@
+ C:\\Users\\bekir\\Desktop\\metabolizmaflu\\.dart_tool\\flutter_build\\72a0091bc4f0115e5ff76565ddc9af49\\dart_build_result.json: 
