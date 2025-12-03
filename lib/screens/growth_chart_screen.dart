@@ -1,18 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
-import 'package:collection/collection.dart';
 import 'package:provider/provider.dart';
 import '../models/models.dart';
 import '../services/persentil_service.dart';
+import '../services/persentil_calculator.dart';
 import '../services/patient_service.dart';
 import '../services/auth_service.dart';
+import '../widgets/flippable_card.dart';
 
 class GrowthChartScreen extends StatefulWidget {
   final PatientRecord patient;
   final String? initialChartType;
 
   const GrowthChartScreen({
-    Key? key, 
+    Key? key,
     required this.patient,
     this.initialChartType,
   }) : super(key: key);
@@ -23,26 +24,30 @@ class GrowthChartScreen extends StatefulWidget {
 
 class _GrowthChartScreenState extends State<GrowthChartScreen> {
   final PersentilService _persentilService = PersentilService();
+  final PersentilCalculator _persentilCalculator = PersentilCalculator();
   final PatientService _patientService = PatientService();
 
   // CSV verisi cache'i
   Map<String, List<PercentileData>> csvDataCache = {};
   Map<String, List<LengthPercentileData>> lengthCsvDataCache = {};
   bool _dataLoaded = false;
-  
+
   // Aynı hasta için tüm kayıtlar (catch-up growth için)
   List<PatientRecord> _allPatientRecords = [];
-  
+
   // Seçili grafik tipi
   String? _selectedChartType;
+
+  PercentileCalculationResult? _percentileResult;
 
   @override
   void initState() {
     super.initState();
     _selectedChartType = widget.initialChartType;
+    _calculateCurrentPercentiles();
     _loadData();
   }
-  
+
   @override
   void didUpdateWidget(GrowthChartScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
@@ -50,7 +55,24 @@ class _GrowthChartScreenState extends State<GrowthChartScreen> {
     if (oldWidget.patient.selectedGender != widget.patient.selectedGender ||
         oldWidget.patient.patientName != widget.patient.patientName) {
       _dataLoaded = false;
+      _calculateCurrentPercentiles();
       _loadData();
+    }
+  }
+
+  void _calculateCurrentPercentiles() {
+    final patient = widget.patient;
+    if (patient.height > 0 &&
+        patient.weight > 0 &&
+        patient.chronologicalAgeInMonths > 0) {
+      _percentileResult = _persentilCalculator.calculateAllPercentiles(
+        chronologicalAgeInMonths: patient.chronologicalAgeInMonths,
+        gender: patient.selectedGender,
+        weight: patient.weight,
+        height: patient.height,
+      );
+    } else {
+      _percentileResult = null;
     }
   }
 
@@ -65,15 +87,17 @@ class _GrowthChartScreenState extends State<GrowthChartScreen> {
   /// Aynı hasta için tüm kayıtları yükle
   Future<void> _loadAllPatientRecords() async {
     try {
-      final records = await _patientService.getAllPatientRecords(widget.patient.patientName);
+      final records = await _patientService
+          .getAllPatientRecords(widget.patient.patientName);
       // Tarihe göre sırala (eskiden yeniye)
       records.sort((a, b) => a.recordDate.compareTo(b.recordDate));
-      
+
       print('DEBUG: Yüklenen kayıt sayısı: ${records.length}');
       for (var record in records) {
-        print('DEBUG: Kayıt - Tarih: ${record.recordDate}, Boy: ${record.height}, Ağırlık: ${record.weight}, Yaş(ay): ${record.chronologicalAgeInMonths}');
+        print(
+            'DEBUG: Kayıt - Tarih: ${record.recordDate}, Boy: ${record.height}, Ağırlık: ${record.weight}, Yaş(ay): ${record.chronologicalAgeInMonths}');
       }
-      
+
       if (mounted) {
         setState(() {
           _allPatientRecords = records;
@@ -87,17 +111,25 @@ class _GrowthChartScreenState extends State<GrowthChartScreen> {
   /// Tüm CSV verilerini yükle
   Future<void> _loadCSVData() async {
     try {
-      final gender = widget.patient.selectedGender.toLowerCase() == 'erkek' ? 'erkek' : 'kadin';
+      final gender = widget.patient.selectedGender.toLowerCase() == 'erkek'
+          ? 'erkek'
+          : 'kadin';
 
       // WHO verilerini yükle
-      csvDataCache['who_weight'] = await _persentilService.loadWeightDataFromCSV('who_${gender}_agirlik.csv');
-      csvDataCache['who_bmi'] = await _persentilService.loadBMIDataFromCSV('who_${gender}_bmi.csv');
-      lengthCsvDataCache['who_height'] = await _persentilService.loadHeightDataFromCSV('who_${gender}_boy.csv');
+      csvDataCache['who_weight'] = await _persentilService
+          .loadWeightDataFromCSV('who_${gender}_agirlik.csv');
+      csvDataCache['who_bmi'] =
+          await _persentilService.loadBMIDataFromCSV('who_${gender}_bmi.csv');
+      lengthCsvDataCache['who_height'] = await _persentilService
+          .loadHeightDataFromCSV('who_${gender}_boy.csv');
 
       // Neyzi verilerini yükle
-      csvDataCache['neyzi_weight'] = await _persentilService.loadWeightDataFromCSV('neyzi_${gender}_agirlik.csv');
-      csvDataCache['neyzi_bmi'] = await _persentilService.loadBMIDataFromCSV('neyzi_${gender}_bmi.csv');
-      lengthCsvDataCache['neyzi_height'] = await _persentilService.loadHeightDataFromCSV('neyzi_${gender}_boy.csv');
+      csvDataCache['neyzi_weight'] = await _persentilService
+          .loadWeightDataFromCSV('neyzi_${gender}_agirlik.csv');
+      csvDataCache['neyzi_bmi'] =
+          await _persentilService.loadBMIDataFromCSV('neyzi_${gender}_bmi.csv');
+      lengthCsvDataCache['neyzi_height'] = await _persentilService
+          .loadHeightDataFromCSV('neyzi_${gender}_boy.csv');
 
       if (mounted) {
         setState(() {
@@ -125,10 +157,12 @@ class _GrowthChartScreenState extends State<GrowthChartScreen> {
   /// Yaş aralığını kontrol et
   bool _isAgeInRange(String chartType, int ageInMonths) {
     // WHO yaş sınırları - sadece boy için kontrol
-    if (chartType == 'who_height' && (ageInMonths < 0 || ageInMonths > 216)) return false;
+    if (chartType == 'who_height' && (ageInMonths < 0 || ageInMonths > 216))
+      return false;
 
     // Neyzi yaş sınırları (0-30 yıl = 0-360 ay)
-    if (chartType.contains('neyzi') && (ageInMonths < 0 || ageInMonths > 360)) return false;
+    if (chartType.contains('neyzi') && (ageInMonths < 0 || ageInMonths > 360))
+      return false;
 
     return true;
   }
@@ -155,7 +189,7 @@ class _GrowthChartScreenState extends State<GrowthChartScreen> {
     final isMale = gender.toLowerCase() == 'erkek';
     final genderColor = isMale ? Colors.blue : Colors.pink;
     final genderText = isMale ? 'ERKEK' : 'KADIN';
-    
+
     // BMI hesapla
     double bmi = 0;
     if (height > 0 && weight > 0) {
@@ -165,7 +199,9 @@ class _GrowthChartScreenState extends State<GrowthChartScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(_selectedChartType != null ? _getChartTitle(_selectedChartType!) : 'Büyüme Grafiği'),
+        title: Text(_selectedChartType != null
+            ? _getChartTitle(_selectedChartType!)
+            : 'Büyüme Grafiği'),
         backgroundColor: genderColor.shade700,
       ),
       body: SingleChildScrollView(
@@ -183,17 +219,34 @@ class _GrowthChartScreenState extends State<GrowthChartScreen> {
                   children: [
                     Text(
                       widget.patient.patientName,
-                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      style: const TextStyle(
+                          fontSize: 18, fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 8),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceAround,
                       children: [
-                        _buildInfoBox('Yaş', '$chronoAgeYears yıl $chronoAgeRemainingMonths ay\n($chronoAgeMonths ay)', Icons.cake),
+                        _buildInfoBox(
+                            'Yaş',
+                            '$chronoAgeYears yıl $chronoAgeRemainingMonths ay\n($chronoAgeMonths ay)',
+                            Icons.cake),
                         _buildInfoBox('Cinsiyet', gender, Icons.person),
-                        _buildInfoBox('Boy', height > 0 ? '${height.toStringAsFixed(1)} cm' : '-', Icons.height),
-                        _buildInfoBox('Ağırlık', weight > 0 ? '${weight.toStringAsFixed(1)} kg' : '-', Icons.monitor_weight),
-                        _buildInfoBox('BKİ', bmi > 0 ? bmi.toStringAsFixed(1) : '-', Icons.analytics),
+                        _buildInfoBox(
+                            'Boy',
+                            height > 0
+                                ? '${height.toStringAsFixed(1)} cm'
+                                : '-',
+                            Icons.height),
+                        _buildInfoBox(
+                            'Ağırlık',
+                            weight > 0
+                                ? '${weight.toStringAsFixed(1)} kg'
+                                : '-',
+                            Icons.monitor_weight),
+                        _buildInfoBox(
+                            'BKİ',
+                            bmi > 0 ? bmi.toStringAsFixed(1) : '-',
+                            Icons.analytics),
                       ],
                     ),
                   ],
@@ -201,10 +254,11 @@ class _GrowthChartScreenState extends State<GrowthChartScreen> {
               ),
             ),
             const SizedBox(height: 20),
-            
+
             // Eğer specific chart seçilmişse sadece onu göster
             if (_selectedChartType != null) ...[
-              _buildChartOrMessage(_getChartTitle(_selectedChartType!), _selectedChartType!),
+              _buildChartTile(
+                  _getChartTitle(_selectedChartType!), _selectedChartType!),
               const SizedBox(height: 20),
               ElevatedButton.icon(
                 onPressed: () {
@@ -217,76 +271,80 @@ class _GrowthChartScreenState extends State<GrowthChartScreen> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: genderColor.shade600,
                   foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                 ),
               ),
             ] else ...[
-              // WHO Grafikleri - Yan yana
-              Text(
-                'WHO Büyüme Grafikleri ($genderText)',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: genderColor.shade800,
-                ),
-              ),
-              const SizedBox(height: 12),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: _buildChartOrMessage('Yaşa Göre Boy', 'who_height'),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _buildChartOrMessage('Yaşa Göre Ağırlık', 'who_weight'),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: _buildChartOrMessage('Yaşa Göre BKİ', 'who_bmi'),
-                  ),
-                  const Expanded(child: SizedBox()), // Boş alan
-                ],
-              ),
-              
-              const SizedBox(height: 30),
-              
-              // Neyzi Grafikleri - Yan yana
-              Text(
-                'Neyzi Büyüme Grafikleri ($genderText)',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: genderColor.shade800,
-                ),
-              ),
-              const SizedBox(height: 12),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: _buildChartOrMessage('Yaşa Göre Boy', 'neyzi_height'),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _buildChartOrMessage('Yaşa Göre Ağırlık', 'neyzi_weight'),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: _buildChartOrMessage('Yaşa Göre BKİ', 'neyzi_bmi'),
-                  ),
-                  const Expanded(child: SizedBox()), // Boş alan
-                ],
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final isNarrow = constraints.maxWidth < 900;
+
+                  Widget buildChartColumn(
+                    String title,
+                    List<MapEntry<String, String>> chartConfigs,
+                  ) {
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          title,
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: genderColor.shade800,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        for (int i = 0; i < chartConfigs.length; i++) ...[
+                          _buildChartTile(
+                            chartConfigs[i].key,
+                            chartConfigs[i].value,
+                          ),
+                          if (i != chartConfigs.length - 1)
+                            const SizedBox(height: 12),
+                        ],
+                      ],
+                    );
+                  }
+
+                  final neyziColumn = buildChartColumn(
+                    'Neyzi Büyüme Grafikleri ($genderText)',
+                    [
+                      MapEntry('Yaşa Göre Ağırlık', 'neyzi_weight'),
+                      MapEntry('Yaşa Göre Boy', 'neyzi_height'),
+                      MapEntry('Yaşa Göre BKİ', 'neyzi_bmi'),
+                    ],
+                  );
+
+                  final whoColumn = buildChartColumn(
+                    'WHO Büyüme Grafikleri ($genderText)',
+                    [
+                      MapEntry('Yaşa Göre Ağırlık', 'who_weight'),
+                      MapEntry('Yaşa Göre Boy', 'who_height'),
+                      MapEntry('Yaşa Göre BKİ', 'who_bmi'),
+                    ],
+                  );
+
+                  if (isNarrow) {
+                    return Column(
+                      children: [
+                        neyziColumn,
+                        const SizedBox(height: 24),
+                        whoColumn,
+                      ],
+                    );
+                  }
+
+                  return Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(child: neyziColumn),
+                      const SizedBox(width: 16),
+                      Expanded(child: whoColumn),
+                    ],
+                  );
+                },
               ),
             ],
           ],
@@ -294,7 +352,7 @@ class _GrowthChartScreenState extends State<GrowthChartScreen> {
       ),
     );
   }
-  
+
   String _getChartTitle(String chartType) {
     switch (chartType) {
       case 'who_height':
@@ -314,6 +372,70 @@ class _GrowthChartScreenState extends State<GrowthChartScreen> {
     }
   }
 
+  Widget _buildChartTile(String title, String chartType) {
+    final int? heightAgeForChart = _getHeightAgeForChart(chartType);
+    if (heightAgeForChart != null) {
+      final kronoAge = widget.patient.chronologicalAgeInMonths;
+      final backLabel = 'Boy Yaşı: ${_formatAgeLabel(heightAgeForChart)}';
+      return FlippableCard(
+        frontChild: _buildChartOrMessage(
+          title,
+          chartType,
+          referenceAgeInMonths: kronoAge,
+          viewLabel: 'Kronolojik Yaş',
+        ),
+        backChild: _buildChartOrMessage(
+          title,
+          chartType,
+          referenceAgeInMonths: heightAgeForChart,
+          viewLabel: backLabel,
+        ),
+      );
+    }
+
+    return _buildChartOrMessage(title, chartType);
+  }
+
+  bool _isWeightOrBmiChart(String chartType) {
+    return chartType.contains('weight') || chartType.contains('bmi');
+  }
+
+  int? _getHeightAgeForChart(String chartType) {
+    if (!_isWeightOrBmiChart(chartType)) return null;
+
+    final bool isNeyziChart = chartType.contains('neyzi');
+    final int? calculatedValue = isNeyziChart
+        ? _percentileResult?.neyziHeightAgeInMonths
+        : _percentileResult?.whoHeightAgeInMonths;
+    if (calculatedValue != null &&
+        calculatedValue > -1 &&
+        calculatedValue != widget.patient.chronologicalAgeInMonths) {
+      return calculatedValue;
+    }
+
+    final int storedValue = isNeyziChart
+        ? widget.patient.neyziHeightAgeInMonths
+        : widget.patient.whoHeightAgeInMonths;
+    if (storedValue > -1 &&
+        storedValue != widget.patient.chronologicalAgeInMonths) {
+      return storedValue;
+    }
+
+    return null;
+  }
+
+  String _formatAgeLabel(int months) {
+    if (months < 12) {
+      return '$months Ay';
+    }
+    final years = months ~/ 12;
+    final remainingMonths = months % 12;
+    if (remainingMonths == 0) {
+      return '$years Yıl';
+    }
+    return '$years Yıl $remainingMonths Ay';
+  }
+
   Widget _buildInfoBox(String label, String value, IconData icon) {
     return Column(
       children: [
@@ -321,42 +443,84 @@ class _GrowthChartScreenState extends State<GrowthChartScreen> {
         const SizedBox(height: 4),
         Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey)),
         const SizedBox(height: 2),
-        Text(value, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
+        Text(value,
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+            textAlign: TextAlign.center),
       ],
     );
   }
 
   Widget _buildPercentileInfo(String chartType, int ageInMonths, double value) {
     // Cache'den veriyi al
-    List<PercentileData>? weightData;
-    List<LengthPercentileData>? heightData;
+    final bool usesWeightData =
+        chartType.contains('weight') || chartType.contains('bmi');
+    final bool hasWeightData = csvDataCache[chartType]?.isNotEmpty ?? false;
+    final bool hasHeightData =
+        lengthCsvDataCache[chartType]?.isNotEmpty ?? false;
 
-    if (chartType == 'who_weight' || chartType == 'neyzi_weight' || chartType == 'who_bmi' || chartType == 'neyzi_bmi') {
-      weightData = csvDataCache[chartType];
-    } else {
-      heightData = lengthCsvDataCache[chartType];
+    // Cache boşsa persentil gösterme
+    if (usesWeightData && !hasWeightData) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: Colors.grey.shade100,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Text(
+          'Hasta Değeri: ${value.toStringAsFixed(1)} → Persentil: -',
+          style: const TextStyle(
+              fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey),
+        ),
+      );
+    }
+
+    if (!usesWeightData && !hasHeightData) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: Colors.grey.shade100,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Text(
+          'Hasta Değeri: ${value.toStringAsFixed(1)} → Persentil: -',
+          style: const TextStyle(
+              fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey),
+        ),
+      );
     }
 
     // Yaşa uygun veriyi bul
     PercentileData? ageWeightData;
     LengthPercentileData? ageHeightData;
-    
-    if (weightData != null) {
-      ageWeightData = weightData.firstWhereOrNull((d) => d.ageInMonths == ageInMonths);
-    } else if (heightData != null) {
-      ageHeightData = heightData.firstWhereOrNull((d) => d.ageInMonths == ageInMonths);
+
+    if (usesWeightData) {
+      ageWeightData = _getClosestWeightPercentile(chartType, ageInMonths);
+    } else {
+      ageHeightData = _getClosestHeightPercentile(chartType, ageInMonths);
     }
 
     // Persentil aralığını bul
     String percentileRange = '-';
     if (ageWeightData != null) {
-      percentileRange = _findPercentileRange(value, ageWeightData.percentile3, ageWeightData.percentile10, 
-        ageWeightData.percentile25, ageWeightData.percentile50, ageWeightData.percentile75, 
-        ageWeightData.percentile90, ageWeightData.percentile97);
+      percentileRange = _findPercentileRange(
+          value,
+          ageWeightData.percentile3,
+          ageWeightData.percentile10,
+          ageWeightData.percentile25,
+          ageWeightData.percentile50,
+          ageWeightData.percentile75,
+          ageWeightData.percentile90,
+          ageWeightData.percentile97);
     } else if (ageHeightData != null) {
-      percentileRange = _findPercentileRange(value, ageHeightData.percentile3, ageHeightData.percentile10, 
-        ageHeightData.percentile25, ageHeightData.percentile50, ageHeightData.percentile75, 
-        ageHeightData.percentile90, ageHeightData.percentile97);
+      percentileRange = _findPercentileRange(
+          value,
+          ageHeightData.percentile3,
+          ageHeightData.percentile10,
+          ageHeightData.percentile25,
+          ageHeightData.percentile50,
+          ageHeightData.percentile75,
+          ageHeightData.percentile90,
+          ageHeightData.percentile97);
     }
 
     return Container(
@@ -367,12 +531,14 @@ class _GrowthChartScreenState extends State<GrowthChartScreen> {
       ),
       child: Text(
         'Hasta Değeri: ${value.toStringAsFixed(1)} → Persentil: $percentileRange',
-        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.blue),
+        style: const TextStyle(
+            fontSize: 12, fontWeight: FontWeight.bold, color: Colors.blue),
       ),
     );
   }
 
-  String _findPercentileRange(double value, double p3, double p10, double p25, double p50, double p75, double p90, double p97) {
+  String _findPercentileRange(double value, double p3, double p10, double p25,
+      double p50, double p75, double p90, double p97) {
     if (value < p3) return '<P3';
     if (value < p10) return 'P3-P10';
     if (value < p25) return 'P10-P25';
@@ -386,7 +552,7 @@ class _GrowthChartScreenState extends State<GrowthChartScreen> {
   /// Y ekseni için uygun interval hesapla
   double _calculateYInterval(double minY, double maxY) {
     double range = maxY - minY;
-    
+
     // Aralığa göre dinamik interval
     if (range <= 20) {
       return 2; // Küçük aralıklar için (örn: BMI 10-25)
@@ -400,8 +566,37 @@ class _GrowthChartScreenState extends State<GrowthChartScreen> {
   }
 
   /// Grafik veya "veri yok" mesajı göster
-  Widget _buildChartOrMessage(String title, String chartType) {
-    final ageInMonths = widget.patient.chronologicalAgeInMonths;
+  Widget _buildChartOrMessage(
+    String title,
+    String chartType, {
+    int? referenceAgeInMonths,
+    String? viewLabel,
+  }) {
+    final ageInMonths =
+        referenceAgeInMonths ?? widget.patient.chronologicalAgeInMonths;
+
+    // CSV verileri yüklenmişse kontrol et
+    if (!_dataLoaded) {
+      return Card(
+        elevation: 3,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            children: [
+              Text(title,
+                  style: const TextStyle(
+                      fontWeight: FontWeight.bold, fontSize: 14)),
+              const SizedBox(height: 16),
+              const SizedBox(
+                height: 30,
+                width: 30,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
 
     if (!_isAgeInRange(chartType, ageInMonths)) {
       return Card(
@@ -410,7 +605,9 @@ class _GrowthChartScreenState extends State<GrowthChartScreen> {
           padding: const EdgeInsets.all(16),
           child: Column(
             children: [
-              Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+              Text(title,
+                  style: const TextStyle(
+                      fontWeight: FontWeight.bold, fontSize: 14)),
               const SizedBox(height: 16),
               Text(
                 'Bu yaş için veri yok (${_getAgeRangeMessage(chartType)})',
@@ -423,7 +620,12 @@ class _GrowthChartScreenState extends State<GrowthChartScreen> {
       );
     }
 
-    return _buildChart(title, chartType);
+    return _buildChart(
+      title,
+      chartType,
+      referenceAgeInMonths: ageInMonths,
+      viewLabel: viewLabel,
+    );
   }
 
   String _getAgeRangeMessage(String chartType) {
@@ -433,33 +635,119 @@ class _GrowthChartScreenState extends State<GrowthChartScreen> {
     return '0-30 yıl'; // Neyzi
   }
 
-  Widget _buildChart(String title, String chartType) {
+  PercentileData? _getClosestWeightPercentile(String chartType, int ageInMonths) {
+    final data = csvDataCache[chartType];
+    if (data == null || data.isEmpty) return null;
+    return _findNearestEntry<PercentileData>(
+      data,
+      ageInMonths,
+      (entry) => entry.ageInMonths,
+    );
+  }
+
+  LengthPercentileData? _getClosestHeightPercentile(String chartType, int ageInMonths) {
+    final data = lengthCsvDataCache[chartType];
+    if (data == null || data.isEmpty) return null;
+    return _findNearestEntry<LengthPercentileData>(
+      data,
+      ageInMonths,
+      (entry) => entry.ageInMonths,
+    );
+  }
+
+  T? _findNearestEntry<T>(
+    List<T> data,
+    int targetAge,
+    int Function(T entry) extractAge,
+  ) {
+    T? nearest;
+    int smallestDiff = 1 << 30;
+
+    for (final entry in data) {
+      final diff = (extractAge(entry) - targetAge).abs();
+      if (diff < smallestDiff) {
+        smallestDiff = diff;
+        nearest = entry;
+      }
+    }
+
+    return nearest;
+  }
+
+  Widget _buildChart(
+    String title,
+    String chartType, {
+    required int referenceAgeInMonths,
+    String? viewLabel,
+  }) {
     final gender = widget.patient.selectedGender;
     final isMale = gender.toLowerCase() == 'erkek';
     final genderColor = isMale ? Colors.blue : Colors.pink;
+    final patientColor =
+      isMale ? Colors.blue.shade700 : Colors.pink.shade700;
+    final bool isWeightOrBmiChart = _isWeightOrBmiChart(chartType);
+    final int? heightAgeForChart =
+      isWeightOrBmiChart ? _getHeightAgeForChart(chartType) : null;
+    final bool isHeightAgeView =
+      heightAgeForChart != null && referenceAgeInMonths == heightAgeForChart;
     final chronoAgeMonths = widget.patient.chronologicalAgeInMonths;
+    final effectiveAgeInMonths = referenceAgeInMonths;
     double weight = widget.patient.weight > 0 ? widget.patient.weight : 0;
     double height = widget.patient.height > 0 ? widget.patient.height : 0;
     double bmi = 0;
-    
+
     // BMI hesapla (eğer boy ve kilo varsa)
     if (height > 0 && weight > 0) {
       double heightInMeters = height / 100.0;
       bmi = weight / (heightInMeters * heightInMeters);
     }
 
+    // Persentil info için en son değeri kullan (geçmiş kayıtlardan)
+    double? lastRecordValue;
+    for (var record in _allPatientRecords.reversed) {
+      if (chartType.contains('height') || chartType.contains('boy')) {
+        if (record.height > 0) {
+          lastRecordValue = record.height;
+          break;
+        }
+      } else if (chartType.contains('bmi')) {
+        if (record.height > 0 && record.weight > 0) {
+          final heightInMeters = record.height / 100;
+          lastRecordValue = record.weight / (heightInMeters * heightInMeters);
+          break;
+        }
+      } else {
+        // weight
+        if (record.weight > 0) {
+          lastRecordValue = record.weight;
+          break;
+        }
+      }
+    }
+
+    // Şu anki değer yoksa son kaydı kullan
+    if (weight == 0 && height == 0) {
+      if (chartType.contains('height') || chartType.contains('boy')) {
+        height = lastRecordValue ?? 0;
+      } else if (chartType.contains('weight')) {
+        weight = lastRecordValue ?? 0;
+      } else if (chartType.contains('bmi')) {
+        bmi = lastRecordValue ?? 0;
+      }
+    }
+
     // Önce Y ekseni aralığını hesapla - hasta verilerine göre dinamik
-    double minY = 0; 
+    double minY = 0;
     double maxY = 100;
     double patientValue = 0;
-    
+
     // Hasta kayıtlarındaki min ve max değerleri bul
     double? minPatientValue;
     double? maxPatientValue;
-    
+
     for (var record in _allPatientRecords) {
       double? value;
-      
+
       if (chartType.contains('height') || chartType.contains('boy')) {
         if (record.height > 0) value = record.height;
       } else if (chartType.contains('bmi')) {
@@ -467,10 +755,11 @@ class _GrowthChartScreenState extends State<GrowthChartScreen> {
           final heightInMeters = record.height / 100;
           value = record.weight / (heightInMeters * heightInMeters);
         }
-      } else { // weight
+      } else {
+        // weight
         if (record.weight > 0) value = record.weight;
       }
-      
+
       if (value != null && value > 0) {
         if (minPatientValue == null || value < minPatientValue) {
           minPatientValue = value;
@@ -480,25 +769,27 @@ class _GrowthChartScreenState extends State<GrowthChartScreen> {
         }
       }
     }
-    
+
     // Hastanın yaşındaki persentil değerlerini al
     PercentileData? ageWeightData;
     LengthPercentileData? ageHeightData;
-    
+
     if (chartType.contains('weight') || chartType.contains('bmi')) {
-      ageWeightData = csvDataCache[chartType]?.firstWhereOrNull((d) => d.ageInMonths == chronoAgeMonths);
+      ageWeightData =
+          _getClosestWeightPercentile(chartType, effectiveAgeInMonths);
     } else if (chartType.contains('height') || chartType.contains('boy')) {
-      ageHeightData = lengthCsvDataCache[chartType]?.firstWhereOrNull((d) => d.ageInMonths == chronoAgeMonths);
+      ageHeightData =
+          _getClosestHeightPercentile(chartType, effectiveAgeInMonths);
     }
-    
+
     if (chartType.contains('height') || chartType.contains('boy')) {
       patientValue = height;
-      
+
       // Hasta verilerine göre dinamik Y aralığı
       if (minPatientValue != null && maxPatientValue != null) {
         minY = (minPatientValue * 0.85).floorToDouble(); // %15 altına
         maxY = (maxPatientValue * 1.15).ceilToDouble(); // %15 üstüne
-        
+
         // Minimum aralık garantisi
         if (maxY - minY < 30) {
           double center = (minY + maxY) / 2;
@@ -514,12 +805,12 @@ class _GrowthChartScreenState extends State<GrowthChartScreen> {
       }
     } else if (chartType.contains('bmi')) {
       patientValue = bmi;
-      
+
       // Hasta verilerine göre dinamik Y aralığı
       if (minPatientValue != null && maxPatientValue != null) {
         minY = (minPatientValue * 0.7).floorToDouble();
         maxY = (maxPatientValue * 1.3).ceilToDouble();
-        
+
         // Minimum aralık garantisi
         if (maxY - minY < 10) {
           double center = (minY + maxY) / 2;
@@ -533,14 +824,15 @@ class _GrowthChartScreenState extends State<GrowthChartScreen> {
         minY = 10;
         maxY = 30;
       }
-    } else { // weight
+    } else {
+      // weight
       patientValue = weight;
-      
+
       // Hasta verilerine göre dinamik Y aralığı
       if (minPatientValue != null && maxPatientValue != null) {
         minY = (minPatientValue * 0.7).floorToDouble();
         maxY = (maxPatientValue * 1.3).ceilToDouble();
-        
+
         // Minimum aralık garantisi
         if (maxY - minY < 5) {
           double center = (minY + maxY) / 2;
@@ -555,13 +847,13 @@ class _GrowthChartScreenState extends State<GrowthChartScreen> {
         maxY = 100;
       }
     }
-    
+
     // minY negatif olmasın
     if (minY < 0) minY = 0;
 
     // Maksimum X değeri: hasta kayıtlarına göre dinamik
     // (Bunu önce hesaplamamız gerek çünkü persentil kontrolünde kullanacağız)
-    
+
     // Hasta kayıtlarındaki en büyük yaşı bul
     int maxPatientAge = chronoAgeMonths;
     for (var record in _allPatientRecords) {
@@ -569,10 +861,18 @@ class _GrowthChartScreenState extends State<GrowthChartScreen> {
         maxPatientAge = record.chronologicalAgeInMonths;
       }
     }
-    
+
+    if (referenceAgeInMonths > maxPatientAge) {
+      maxPatientAge = referenceAgeInMonths;
+    }
+
+    if (heightAgeForChart != null && heightAgeForChart > maxPatientAge) {
+      maxPatientAge = heightAgeForChart;
+    }
+
     // Hasta verilerine göre uygun aralık seç - biraz marj ekle
     int targetAge = maxPatientAge + 12; // 1 yıl marj
-    
+
     double maxX = 48; // Varsayılan
     if (targetAge <= 24) {
       maxX = 36; // 3 yaş
@@ -585,7 +885,7 @@ class _GrowthChartScreenState extends State<GrowthChartScreen> {
     } else {
       maxX = chartType.contains('who') ? 216 : 360;
     }
-    
+
     // Persentil eğrilerindeki min/max değerleri de dikkate al
     // maxX aralığındaki tüm persentil verilerini kontrol et
     if (chartType.contains('height') || chartType.contains('boy')) {
@@ -598,7 +898,8 @@ class _GrowthChartScreenState extends State<GrowthChartScreen> {
           }
         }
       }
-    } else { // weight or bmi
+    } else {
+      // weight or bmi
       final data = csvDataCache[chartType];
       if (data != null) {
         for (var d in data) {
@@ -609,68 +910,85 @@ class _GrowthChartScreenState extends State<GrowthChartScreen> {
         }
       }
     }
-    
+
     // Biraz margin ekle
     double yMargin = (maxY - minY) * 0.05; // %5 margin
     minY = minY - yMargin;
     maxY = maxY + yMargin;
     if (minY < 0) minY = 0;
-    
+
     // Y eksenini grid aralığına hizala
     double yInterval = _calculateYInterval(minY, maxY);
     minY = (minY / yInterval).floor() * yInterval;
     maxY = (maxY / yInterval).ceil() * yInterval;
 
     final lineBars = <LineChartBarData>[];
-    
+
     // Persentil çizgileri (sabit: 3, 15, 25, 50, 75, 90, 97)
     final persentils = [3, 15, 25, 50, 75, 90, 97];
-    
+
     for (int p in persentils) {
-      lineBars.add(_buildPercentileLine(chartType, p, gender, maxX, minY, maxY));
+      lineBars
+          .add(_buildPercentileLine(chartType, p, gender, maxX, minY, maxY));
     }
-    
+
     // Hasta verileri: Tüm kayıtlardan ilgili değerleri al (catch-up growth için)
     List<FlSpot> patientSpots = [];
-    
+
     print('DEBUG: _allPatientRecords sayısı: ${_allPatientRecords.length}');
     print('DEBUG: chartType: $chartType');
-    
+
     for (var record in _allPatientRecords) {
       double? value;
-      
+
       if (chartType == 'who_weight' || chartType == 'neyzi_weight') {
         if (record.weight > 0) {
           value = record.weight;
-          print('DEBUG: Ağırlık değeri bulundu: $value, Yaş(ay): ${record.chronologicalAgeInMonths}');
+          print(
+              'DEBUG: Ağırlık değeri bulundu: $value, Yaş(ay): ${record.chronologicalAgeInMonths}');
         }
       } else if (chartType == 'who_height' || chartType == 'neyzi_height') {
         if (record.height > 0) {
           value = record.height;
-          print('DEBUG: Boy değeri bulundu: $value, Yaş(ay): ${record.chronologicalAgeInMonths}');
+          print(
+              'DEBUG: Boy değeri bulundu: $value, Yaş(ay): ${record.chronologicalAgeInMonths}');
         }
       } else if (chartType == 'who_bmi' || chartType == 'neyzi_bmi') {
         if (record.height > 0 && record.weight > 0) {
           final heightInMeters = record.height / 100;
           value = record.weight / (heightInMeters * heightInMeters);
-          print('DEBUG: BMI değeri hesaplandı: $value, Yaş(ay): ${record.chronologicalAgeInMonths}');
+          print(
+              'DEBUG: BMI değeri hesaplandı: $value, Yaş(ay): ${record.chronologicalAgeInMonths}');
         }
       }
-      
+
       if (value != null && value > 0) {
-        patientSpots.add(FlSpot(record.chronologicalAgeInMonths.toDouble(), value));
-        print('DEBUG: FlSpot eklendi: (${record.chronologicalAgeInMonths.toDouble()}, $value)');
+        patientSpots
+            .add(FlSpot(record.chronologicalAgeInMonths.toDouble(), value));
+        print(
+            'DEBUG: FlSpot eklendi: (${record.chronologicalAgeInMonths.toDouble()}, $value)');
       }
     }
-    
+
     print('DEBUG: Toplam patientSpots sayısı: ${patientSpots.length}');
-    
+
     // Hasta verilerini ekle (birden fazla kayıt varsa çizgi, tek kayıt varsa sadece nokta)
-    if (patientSpots.isNotEmpty) {
-      lineBars.add(_buildPatientDataLine(patientSpots));
+    if (patientSpots.isNotEmpty && !isHeightAgeView) {
+      lineBars.add(_buildPatientDataLine(patientSpots, patientColor));
       print('DEBUG: Patient data line eklendi');
     } else {
       print('DEBUG: UYARI - patientSpots boş!');
+    }
+
+    FlSpot? referenceMarker;
+    Color? referenceMarkerColor;
+    if (patientValue > 0 && isHeightAgeView) {
+      referenceMarker =
+          FlSpot(referenceAgeInMonths.toDouble(), patientValue.toDouble());
+      referenceMarkerColor = Colors.lightBlue.shade600;
+      lineBars.add(
+        _buildMarkerDot(referenceMarker, referenceMarkerColor),
+      );
     }
 
     return Card(
@@ -681,7 +999,28 @@ class _GrowthChartScreenState extends State<GrowthChartScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+            if (viewLabel != null) ...[
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.05),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    viewLabel,
+                    style: const TextStyle(
+                        fontSize: 11, fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 6),
+            ],
+            Text(title,
+                style:
+                    const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
             const SizedBox(height: 8),
             // Yaş uyarı mesajları
             if (chartType == 'who_weight' && chronoAgeMonths > 120)
@@ -695,12 +1034,16 @@ class _GrowthChartScreenState extends State<GrowthChartScreen> {
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.warning_amber_rounded, color: Colors.orange.shade700, size: 20),
+                    Icon(Icons.warning_amber_rounded,
+                        color: Colors.orange.shade700, size: 20),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         '10 yaşından büyük çocuklar için BKİ kullanınız',
-                        style: TextStyle(fontSize: 12, color: Colors.orange.shade900, fontWeight: FontWeight.w500),
+                        style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.orange.shade900,
+                            fontWeight: FontWeight.w500),
                       ),
                     ),
                   ],
@@ -717,19 +1060,23 @@ class _GrowthChartScreenState extends State<GrowthChartScreen> {
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.info_outline, color: Colors.blue.shade700, size: 20),
+                    Icon(Icons.info_outline,
+                        color: Colors.blue.shade700, size: 20),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         '2 yaşından büyük çocuklar için kullanılır',
-                        style: TextStyle(fontSize: 12, color: Colors.blue.shade900, fontWeight: FontWeight.w500),
+                        style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.blue.shade900,
+                            fontWeight: FontWeight.w500),
                       ),
                     ),
                   ],
                 ),
               ),
             // Persentil bilgisi (mavi nokta için)
-            if (patientValue > 0) _buildPercentileInfo(chartType, chronoAgeMonths, patientValue),
+            _buildPercentileInfo(chartType, effectiveAgeInMonths, patientValue),
             const SizedBox(height: 8),
             SizedBox(
               height: 280,
@@ -747,31 +1094,38 @@ class _GrowthChartScreenState extends State<GrowthChartScreen> {
                         showTitles: true,
                         reservedSize: 40,
                         interval: _calculateYInterval(minY, maxY),
-                        getTitlesWidget: (value, meta) =>
-                            Text(value.toStringAsFixed(0), style: const TextStyle(fontSize: 10)),
+                        getTitlesWidget: (value, meta) => Text(
+                            value.toStringAsFixed(0),
+                            style: const TextStyle(fontSize: 10)),
                       ),
                     ),
                     bottomTitles: AxisTitles(
                       sideTitles: SideTitles(
                         showTitles: true,
-                        interval: maxX <= 24 ? 3 : (maxX <= 72 ? 6 : 12), // Dinamik interval
+                        interval: maxX <= 24
+                            ? 3
+                            : (maxX <= 72 ? 6 : 12), // Dinamik interval
                         getTitlesWidget: (value, meta) {
                           // Ay/Yıl formatında gösterim
                           if (maxX <= 36) {
                             // 36 ay ve altı: ay olarak göster
-                            return Text('${value.toInt()}a', style: const TextStyle(fontSize: 9));
+                            return Text('${value.toInt()}a',
+                                style: const TextStyle(fontSize: 9));
                           } else {
                             // 36 ayın üstü: yıl olarak göster
                             if (value % 12 == 0) {
-                              return Text('${(value / 12).toStringAsFixed(0)}y', style: const TextStyle(fontSize: 9));
+                              return Text('${(value / 12).toStringAsFixed(0)}y',
+                                  style: const TextStyle(fontSize: 9));
                             }
                             return const Text('');
                           }
                         },
                       ),
                     ),
-                    topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                    rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                    topTitles: const AxisTitles(
+                        sideTitles: SideTitles(showTitles: false)),
+                    rightTitles: const AxisTitles(
+                        sideTitles: SideTitles(showTitles: false)),
                   ),
                   borderData: FlBorderData(show: true),
                   lineBarsData: lineBars,
@@ -783,14 +1137,21 @@ class _GrowthChartScreenState extends State<GrowthChartScreen> {
               ),
             ),
             const SizedBox(height: 8),
-            _buildLegend(persentils),
+            _buildLegend(
+              persentils,
+              patientColor: !isHeightAgeView && patientSpots.isNotEmpty
+                  ? patientColor
+                  : null,
+              showHeightAgeMarker: referenceMarker != null,
+            ),
           ],
         ),
       ),
     );
   }
 
-  LineChartBarData _buildPercentileLine(String chartType, int percentile, String gender, double maxX, double minY, double maxY) {
+  LineChartBarData _buildPercentileLine(String chartType, int percentile,
+      String gender, double maxX, double minY, double maxY) {
     List<FlSpot> spots = [];
 
     // Cache'den ilgili verileri al
@@ -814,13 +1175,14 @@ class _GrowthChartScreenState extends State<GrowthChartScreen> {
     // Persentil değerini field adından al
     // Kullanılan persentiller: 3, 15, 25, 50, 75, 90, 97
     late double Function(dynamic) getPercentileValue;
-    
+
     switch (percentile) {
       case 3:
         getPercentileValue = (data) => (data as dynamic).percentile3;
         break;
       case 15:
-        getPercentileValue = (data) => (data as dynamic).percentile10; // 15 → 10 (en yakın)
+        getPercentileValue =
+            (data) => (data as dynamic).percentile10; // 15 → 10 (en yakın)
         break;
       case 25:
         getPercentileValue = (data) => (data as dynamic).percentile25;
@@ -853,7 +1215,7 @@ class _GrowthChartScreenState extends State<GrowthChartScreen> {
         }
       }
     }
-    
+
     // Height verisi - sadece maxX aralığındaki noktalar
     if (heightData != null && heightData.isNotEmpty) {
       for (var data in heightData) {
@@ -878,13 +1240,11 @@ class _GrowthChartScreenState extends State<GrowthChartScreen> {
     );
   }
 
-  LineChartBarData _buildPatientDataLine(List<FlSpot> spots) {
+  LineChartBarData _buildPatientDataLine(
+      List<FlSpot> spots, Color patientColor) {
     // Birden fazla nokta varsa çizgi göster (catch-up growth takibi için)
     final bool showLine = spots.length > 1;
-    final gender = widget.patient.selectedGender;
-    final isMale = gender.toLowerCase() == 'erkek';
-    final patientColor = isMale ? Colors.blue.shade700 : Colors.pink.shade700;
-    
+
     return LineChartBarData(
       spots: spots,
       isCurved: true, // Yumuşak eğri
@@ -892,13 +1252,31 @@ class _GrowthChartScreenState extends State<GrowthChartScreen> {
       barWidth: showLine ? 3.0 : 0, // Birden fazla nokta varsa çizgi göster
       dotData: FlDotData(
         show: true,
+        getDotPainter: (spot, percent, barData, index) => FlDotCirclePainter(
+          radius: 6,
+          color: patientColor,
+          strokeWidth: 2,
+          strokeColor: Colors.white,
+        ),
+      ),
+    );
+  }
+
+  LineChartBarData _buildMarkerDot(FlSpot spot, Color color) {
+    return LineChartBarData(
+      spots: [spot],
+      isCurved: false,
+      color: color,
+      barWidth: 0,
+      dotData: FlDotData(
+        show: true,
         getDotPainter: (spot, percent, barData, index) =>
             FlDotCirclePainter(
-              radius: 6,
-              color: patientColor,
-              strokeWidth: 2,
-              strokeColor: Colors.white,
-            ),
+          radius: 7,
+          color: color,
+          strokeWidth: 2,
+          strokeColor: Colors.white,
+        ),
       ),
     );
   }
@@ -925,16 +1303,39 @@ class _GrowthChartScreenState extends State<GrowthChartScreen> {
     }
   }
 
-  Widget _buildLegend(List<int> persentils) {
+  Widget _buildLegend(
+    List<int> persentils, {
+    Color? patientColor,
+    bool showHeightAgeMarker = false,
+  }) {
+    final legendItems = <Widget>[
+      for (final p in persentils)
+        _buildLegendChip('P$p', _getPercentileColor(p)),
+    ];
+
+    if (patientColor != null) {
+      legendItems.add(_buildLegendChip('Hasta Eğrisi', patientColor));
+    }
+
+    if (showHeightAgeMarker) {
+      legendItems.add(
+        _buildLegendChip('Boy Yaşı Noktası', Colors.lightBlue.shade600),
+      );
+    }
+
     return Wrap(
       spacing: 8,
-      children: persentils.map((p) {
-        return Chip(
-          label: Text('P$p', style: const TextStyle(fontSize: 10, color: Colors.white)),
-          backgroundColor: _getPercentileColor(p),
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-        );
-      }).toList(),
+      runSpacing: 4,
+      children: legendItems,
+    );
+  }
+
+  Widget _buildLegendChip(String label, Color color) {
+    return Chip(
+      label: Text(label,
+          style: const TextStyle(fontSize: 10, color: Colors.white)),
+      backgroundColor: color,
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
     );
   }
 }

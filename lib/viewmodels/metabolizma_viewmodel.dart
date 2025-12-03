@@ -12,6 +12,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import '../models/models.dart';
 import '../services/persentil_service_v2.dart'; 
+import '../services/persentil_calculator.dart'; 
 import 'package:fl_chart/fl_chart.dart'; 
 import 'dart:math' show min; 
 import 'package:collection/collection.dart'; 
@@ -336,8 +337,10 @@ class CalculatedPercentage {
 
 class MetabolizmaViewModel extends ChangeNotifier {
   final PersentilService _persentilService = PersentilService();
+  final PersentilCalculator persentilCalculator = PersentilCalculator();
 
   String? currentRecordId; 
+  PatientRecord? currentRecord;
   String loadedPatientName = "";
   
   final TextEditingController nameController = TextEditingController();
@@ -364,6 +367,8 @@ class MetabolizmaViewModel extends ChangeNotifier {
   double? selectedPercentileValue;
   
   final TextEditingController percentileWeightController = TextEditingController();
+  bool isNeyziWeightCardFront = true;
+  bool isWhoWeightCardFront = true;
   
   final TextEditingController heightAgeInMonthsDisplayController = TextEditingController();
   int calculatedHeightAgeInMonths = -1; 
@@ -371,6 +376,9 @@ class MetabolizmaViewModel extends ChangeNotifier {
 
   CalculatedPercentiles calculatedPercentiles = CalculatedPercentiles();
   
+  // Getter: Şu anki weight ve height değerlerini al (TextEditingController'lardan)
+  double get currentWeight => double.tryParse(weightController.text.replaceAll(',', '.')) ?? 0.0;
+  double get currentHeight => double.tryParse(heightController.text.replaceAll(',', '.')) ?? 0.0;
   
   final TextEditingController energyReqController = TextEditingController();
   final TextEditingController proteinReqController = TextEditingController();
@@ -731,6 +739,43 @@ final TextEditingController tyrosineVisitDateController = TextEditingController(
       }
     }
   }
+
+  void setWeightCardFace(PercentileSource source, bool isFront) {
+    bool updated = false;
+    if (source == PercentileSource.neyzi) {
+      if (isNeyziWeightCardFront != isFront) {
+        isNeyziWeightCardFront = isFront;
+        updated = true;
+      }
+    } else if (source == PercentileSource.who) {
+      if (isWhoWeightCardFront != isFront) {
+        isWhoWeightCardFront = isFront;
+        updated = true;
+      }
+    }
+
+    if (!updated) return;
+
+    _performAndUpdatePersonalCalculations(notify: false);
+    notifyListeners();
+  }
+
+  ({int ageInMonths, bool usedHeightAge}) _resolveAgeForPercentileSource(
+      PercentileSource source, int chronoAgeInMonths) {
+    final bool wantsHeightAge = source == PercentileSource.neyzi
+        ? !isNeyziWeightCardFront
+        : !isWhoWeightCardFront;
+
+    final int? heightAgeCandidate = source == PercentileSource.neyzi
+        ? (calculatedHeightAgeInMonths > -1 ? calculatedHeightAgeInMonths : null)
+        : (whoHeightAgeInMonths > -1 ? whoHeightAgeInMonths : null);
+
+    if (wantsHeightAge && heightAgeCandidate != null) {
+      return (ageInMonths: heightAgeCandidate, usedHeightAge: true);
+    }
+
+    return (ageInMonths: chronoAgeInMonths, usedHeightAge: false);
+  }
   
 void _performAndUpdatePersonalCalculations({bool notify = true}) {
     final double currentWeight = double.tryParse(weightController.text.replaceAll(',', '.')) ?? 0.0; 
@@ -741,14 +786,48 @@ void _performAndUpdatePersonalCalculations({bool notify = true}) {
     
     final int chronoAgeInYearsForBMH = chronoYears; 
     
-    calculatedHeightAgeInMonths = -1; 
-    whoHeightAgeInMonths = -1;
-    int ageForCalculationsInMonths = chronoMonthsTotal; 
+    // ===== YENİ: MERKEZI PERSENTIL HESAPLAMASI =====
+    final persentilResult = persentilCalculator.calculateAllPercentiles(
+      chronologicalAgeInMonths: chronoMonthsTotal,
+      gender: selectedGender,
+      weight: currentWeight,
+      height: height,
+    );
+
+    // Boy yaşı değerlerini ViewModel'de sakla
+    calculatedHeightAgeInMonths = persentilResult.neyziHeightAgeInMonths;
+    whoHeightAgeInMonths = persentilResult.whoHeightAgeInMonths;
+
+    // Boy yaşı display metnini oluştur
     String heightAgeDisplay = "-";
+    if (persentilResult.hasHeightAge) {
+      heightAgeDisplay =
+          persentilCalculator.formatHeightAgeDisplay(persentilResult.neyziHeightAgeInMonths, persentilResult.whoHeightAgeInMonths);
+    }
     
+    heightAgeInMonthsDisplayController.text = heightAgeDisplay;
+
+    calculatedPercentiles = CalculatedPercentiles(
+      neyziWeightPercentile: persentilResult.neyziWeightPercentileChronoAge,
+      whoWeightPercentile: persentilResult.whoWeightPercentileChronoAge,
+      neyziHeightPercentile: persentilResult.neyziHeightPercentile,
+      whoHeightPercentile: persentilResult.whoHeightPercentile,
+      neyziBmiPercentile: persentilResult.neyzieBmiPercentileChronoAge,
+      whoBmiPercentile: persentilResult.whoBmiPercentileChronoAge,
+      neyziHeightAgeStatus: heightAgeDisplay,
+      whoHeightAgeStatus: heightAgeDisplay,
+    );
+
+    // Burada boy yaşı gösterilmesi için UI'a veri sağlandı
+    // ===== YENİ: MERKEZI PERSENTIL HESAPLAMASI SONU =====
+    
+    final bool hasCalculatedHeightAge = calculatedHeightAgeInMonths != -1;
+    final int ageForCalculationsInMonths = hasCalculatedHeightAge
+      ? calculatedHeightAgeInMonths
+      : chronoMonthsTotal;
     String currentWeightPercentileRange = "-";
     String bmiPercentileRange = "-";
-    String heightPercentileRange = "-"; 
+    String heightPercentileRange = "-";
 
     // Boy yaşı hesaplaması yapılacak _loadCSVPercentilesAndNotify'da
     // Burada sadece boy yaşı için ön hesaplama
@@ -758,10 +837,10 @@ void _performAndUpdatePersonalCalculations({bool notify = true}) {
        heightAgeDisplay = "Kronolojik Yaş olarak hesaplandı";
     }
     
-    final ageForCalculationsInYears = ageForCalculationsInMonths >= 12 ? (ageForCalculationsInMonths / 12.0).floor() : 0;
-    final ageForCalculationsInDouble = ageForCalculationsInMonths / 12.0; 
-    
-    heightAgeInMonthsDisplayController.text = heightAgeDisplay;
+    final ageForCalculationsInYears = ageForCalculationsInMonths >= 12
+      ? (ageForCalculationsInMonths / 12.0).floor()
+      : 0;
+    final ageForCalculationsInDouble = ageForCalculationsInMonths / 12.0;
 
     double reqFinalWeight = 0.0; 
     String weightCalculationSource = "-";
@@ -780,22 +859,30 @@ void _performAndUpdatePersonalCalculations({bool notify = true}) {
     } else if (selectedWeightSource == WeightSource.whoPercentile || selectedWeightSource == WeightSource.neyziPercentile) {
         final source = selectedWeightSource == WeightSource.whoPercentile ? PercentileSource.who : PercentileSource.neyzi;
         
-        if (selectedPercentileValue != null && ageForCalculationsInMonths >= 0) {
-            final double percentileWeight = _persentilService.getPercentileWeight(
-                source: source, 
-                ageInMonths: ageForCalculationsInMonths, 
-                gender: selectedGender, 
-                percentileValue: selectedPercentileValue!,
-            );
+      if (selectedPercentileValue != null && ageForCalculationsInMonths >= 0) {
+        final ageLookup =
+          _resolveAgeForPercentileSource(source, ageForCalculationsInMonths);
+        final double percentileWeight = _persentilService.getPercentileWeight(
+          source: source,
+          ageInMonths: ageLookup.ageInMonths,
+          gender: selectedGender,
+          percentileValue: selectedPercentileValue!,
+        );
             
             if (percentileWeight > 0) {
                 reqFinalWeight = percentileWeight; 
                 
                 percentileWeightController.text = _amountFormat.format(percentileWeight);
-                weightCalculationSource = "${selectedPercentileValue!.toInt()}. Persentil (${source == PercentileSource.neyzi ? 'Neyzi' : 'WHO'})";
+          final sourceLabel =
+            source == PercentileSource.neyzi ? 'Neyzi' : 'WHO';
+          final ageContext =
+            ageLookup.usedHeightAge ? 'Boy Yaşı' : 'Kronolojik Yaş';
+          weightCalculationSource =
+            "${selectedPercentileValue!.toInt()}. Persentil ($sourceLabel - $ageContext)";
             } else {
                 // WHO seçilmişse ve yaş > 10 ay (120 ay), Neyzi seçmeleri gerekiyor mesajını göster
-                if (selectedWeightSource == WeightSource.whoPercentile && ageForCalculationsInMonths > 120) {
+          if (selectedWeightSource == WeightSource.whoPercentile &&
+            ageLookup.ageInMonths > 120) {
                     percentileWeightController.text = "Neyzi Persentilini Seçiniz";
                     weightCalculationSource = "Neyzi Persentil Seçim Gerekli";
                     reqFinalWeight = currentWeight; // Fallback olarak kendi ağırlığı
@@ -818,11 +905,11 @@ void _performAndUpdatePersonalCalculations({bool notify = true}) {
     
     if (reqFinalWeight > 0 && chronoMonthsTotal >= 0) {
         // YENİ DÜZENLEME: BMH formülü için kronolojik yaş yerine, boy yaşından türetilen yaşı kullan.
-        final int ageForBMHCalculation = calculatedHeightAgeInMonths != -1 
-                                          ? ageForCalculationsInYears // Eğer Boy Yaşı hesaplandıysa, onu kullan.
-                                          : chronoAgeInYearsForBMH; // Aksi halde Kronolojik Yaşı kullan.
-                                          
-        final String ageSource = calculatedHeightAgeInMonths != -1 ? "Boy Yaşı" : "Kronolojik Yaş";
+        final int ageForBMHCalculation = hasCalculatedHeightAge
+          ? ageForCalculationsInYears // Boy yaşı hesaplandıysa onu kullan
+          : chronoAgeInYearsForBMH; // Aksi halde kronolojik yaş
+
+        final String ageSource = hasCalculatedHeightAge ? "Boy Yaşı" : "Kronolojik Yaş";
 
         var (bmh, bmhFormula, bmhRef) = calculateBMH_WHO(reqFinalWeight, ageForBMHCalculation, selectedGender); 
         
@@ -858,7 +945,7 @@ void _performAndUpdatePersonalCalculations({bool notify = true}) {
        var reqs = calculateRequirements(ageForCalculationsInDouble, ageForCalculationsInMonths, ageForCalculationsInYears, reqFinalWeight, selectedGender, isPregnant, isPremature, bmhValue, fafValue);
        
        bmiController.text = _bmiFormat.format(bmi); 
-       bmiCalculationString = "$bmiFormula = ${bmiController.text} (Ağırlık Kaynağı: Girilen Ağırlık)"; 
+       bmiCalculationString = "$bmiFormula = ${bmiController.text} (Ağırlık Kaynağı: Kendi Ağırlığı)"; 
        bmiTooltipString = bmiRef;
        
        pheReqController.text = reqs.faRange; 
@@ -870,7 +957,7 @@ void _performAndUpdatePersonalCalculations({bool notify = true}) {
        }
        rawConstraint = rawConstraint.replaceAll('\u2265', '>=');
        
-       proteinReqTooltipString = "Eski katsayı ile hesaplanmıştır. | Kısıt Kontrolü: ${rawConstraint}";
+       proteinReqTooltipString = "Protein Katsayıları Tablosuna Göre hesaplanmıştır. | Kısıt Kontrolü: ${rawConstraint}";
        proteinReqController.text = "${_reqFormat.format(reqs.protein)} g (Kontrol: ${rawConstraint})";
        
        enerjiReqCalculationString = "PKU Tablosu Aralık: ${reqs.enerjiRange} (Ağırlık Kaynağı: $weightCalculationSource)"; 
@@ -903,8 +990,8 @@ void _performAndUpdatePersonalCalculations({bool notify = true}) {
        } 
       
       int newHighlightedIndex = -1; 
-      final referenceAgeInMonths = calculatedHeightAgeInMonths != -1 ? calculatedHeightAgeInMonths : chronoMonthsTotal;
-      final referenceAgeInYears = referenceAgeInMonths >= 12 ? (referenceAgeInMonths / 12.0).floor() : 0;
+      final referenceAgeInMonths = ageForCalculationsInMonths;
+      final referenceAgeInYears = ageForCalculationsInYears;
 
       if (isPremature || isPregnant) {
           newHighlightedIndex = -1; 
@@ -2375,12 +2462,20 @@ void _performAndUpdatePersonalCalculations({bool notify = true}) {
     final currentWeight = double.tryParse(weightController.text.replaceAll(',', '.')) ?? 0.0;
     final currentHeight = double.tryParse(heightController.text.replaceAll(',', '.')) ?? 0.0;
 
-    // DEBUG: Veri durumunu kontrol et
     print('DEBUG _prepareJsonRecordData ÇAĞRILDI:');
-    print('DEBUG calculatedPercentiles.neyziWeightPercentile = ${calculatedPercentiles.neyziWeightPercentile}');
-    print('DEBUG calculatedPercentiles.whoWeightPercentile = ${calculatedPercentiles.whoWeightPercentile}');
-    print('DEBUG calculatedPercentiles.neyziHeightPercentile = ${calculatedPercentiles.neyziHeightPercentile}');
-    print('DEBUG calculatedPercentiles.whoHeightPercentile = ${calculatedPercentiles.whoHeightPercentile}');
+    print('DEBUG totalMonths = $totalMonths, currentWeight = $currentWeight, currentHeight = $currentHeight, selectedGender = $selectedGender');
+    
+    // ÖNEMLİ: Kayıt sırasında persentilleri YENIDEN HESAPLA (calculatedPercentiles'a güvenme!)
+    final freshPercentiles = persentilCalculator.calculateAllPercentiles(
+      chronologicalAgeInMonths: totalMonths,
+      gender: selectedGender,
+      weight: currentWeight,
+      height: currentHeight,
+    );
+    
+    print('DEBUG freshPercentiles.neyziWeightPercentile = ${freshPercentiles.neyziWeightPercentileChronoAge}');
+    print('DEBUG freshPercentiles.whoWeightPercentile = ${freshPercentiles.whoWeightPercentileChronoAge}');
+    print('DEBUG freshPercentiles.neyziHeightPercentile = ${freshPercentiles.neyziHeightPercentile}');
 
     final recordJson = serializeDataToJson();
     final newRecord = PatientRecord(
@@ -2397,17 +2492,17 @@ void _performAndUpdatePersonalCalculations({bool notify = true}) {
       chronologicalAgeYears: years, // Yıl
       chronologicalAgeMonths: totalMonths % 12, // Kalan Ay
       height: currentHeight,
-      // Büyüme Gelişme Verileri
-      neyziWeightPercentile: calculatedPercentiles.neyziWeightPercentile,
-      whoWeightPercentile: calculatedPercentiles.whoWeightPercentile,
-      neyziHeightPercentile: calculatedPercentiles.neyziHeightPercentile,
-      whoHeightPercentile: calculatedPercentiles.whoHeightPercentile,
-      neyziBmiPercentile: calculatedPercentiles.neyziBmiPercentile,
-      whoBmiPercentile: calculatedPercentiles.whoBmiPercentile,
-      neyziHeightAgeStatus: calculatedPercentiles.neyziHeightAgeStatus,
-      whoHeightAgeStatus: calculatedPercentiles.whoHeightAgeStatus,
-      neyziHeightAgeInMonths: calculatedHeightAgeInMonths,
-      whoHeightAgeInMonths: whoHeightAgeInMonths,
+      // Büyüme Gelişme Verileri - TAZE HESAPLANAN DEĞERLERİ KUL LAN!
+      neyziWeightPercentile: freshPercentiles.neyziWeightPercentileChronoAge,
+      whoWeightPercentile: freshPercentiles.whoWeightPercentileChronoAge,
+      neyziHeightPercentile: freshPercentiles.neyziHeightPercentile,
+      whoHeightPercentile: freshPercentiles.whoHeightPercentile,
+      neyziBmiPercentile: freshPercentiles.neyzieBmiPercentileChronoAge,
+      whoBmiPercentile: freshPercentiles.whoBmiPercentileChronoAge,
+      neyziHeightAgeStatus: freshPercentiles.neyziHeightAgeStatus,
+      whoHeightAgeStatus: freshPercentiles.whoHeightAgeStatus,
+      neyziHeightAgeInMonths: freshPercentiles.neyziHeightAgeInMonths,
+      whoHeightAgeInMonths: freshPercentiles.whoHeightAgeInMonths,
     );
     final jsonString = jsonEncode(newRecord.toJson());
     return (jsonString: jsonString, record: newRecord);
@@ -2630,7 +2725,19 @@ void _performAndUpdatePersonalCalculations({bool notify = true}) {
   void loadPatientData(PatientRecord record) {
     loadedPatientName = record.patientName;
     currentRecordId = record.recordId;
+    currentRecord = record;
+    isNeyziWeightCardFront = true;
+    isWhoWeightCardFront = true;
     deserializeDataFromJson(record.recordDataJson);
+    
+    // PatientRecord'dan gelen değerleri kullan (JSON'daki'nin üzerine yaz)
+    // ÖNEMLI: deserialize'dan sonra yapılır ki JSON değerleri override edilsin
+    selectedGender = record.selectedGender;
+    heightController.text = record.height.toStringAsFixed(1);
+    weightController.text = record.weight.toStringAsFixed(1);
+    
+    // Kişisel bilgiler yüklendikten sonra persentil ve büyüme-gelişme hesaplamalarını tetikle
+    _performAndUpdatePersonalCalculations();
     notifyListeners();
   }
   
@@ -2651,6 +2758,8 @@ void _performAndUpdatePersonalCalculations({bool notify = true}) {
       selectedPercentileValue = null;
       currentRecordId = null;
       loadedPatientName = "";
+      isNeyziWeightCardFront = true;
+      isWhoWeightCardFront = true;
       // YENİ EKLENECEK SATIRLAR
       pheLevelController.clear();
       visitDateController.clear();

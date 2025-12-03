@@ -249,14 +249,6 @@ class PersentilService {
     return loadWeightDataFromCSV(fileName);
   }
 
-  // ===== PERCENTILE VALUE GETTERS (STUBS FOR CHARTS) =====
-  double getPercentileLengthValueWHO(int age, String gender, int percentile) => 0.0;
-  double getPercentileWeightValueWHO(int age, String gender, int percentile) => 0.0;
-  double getPercentileBMIValueWHO(int age, String gender, int percentile) => 0.0;
-  double getPercentileLengthValueNeyzi(int age, String gender, int percentile) => 0.0;
-  double getPercentileWeightValueNeyzi(int age, String gender, int percentile) => 0.0;
-  double getPercentileBMIValueNeyzi(int age, String gender, int percentile) => 0.0;
-
   // ===== PERCENTILE RANGE CALCULATION =====
   String getHeightPercentileRange({
     required int ageInMonths,

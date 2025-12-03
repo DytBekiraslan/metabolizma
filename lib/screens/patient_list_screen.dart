@@ -292,9 +292,10 @@ class _PatientListScreenState extends State<PatientListScreen> {
                               message: 'Büyüme Gelişme Değerlendirmesi ve Persentil Analizi',
                               child: ElevatedButton.icon(
                                 onPressed: () {
+                                  // Büyüme ve Gelişme Değerlendirmesi Ekranı aç
                                   Navigator.of(context).push(
                                     MaterialPageRoute(
-                                      builder: (context) => GrowthAssessmentScreen(patient: latestRecord),
+                                      builder: (context) => GrowthAssessmentScreen(initialRecord: latestRecord),
                                     ),
                                   ).then((_) => setState(() {}));
                                 },

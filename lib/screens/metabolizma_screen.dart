@@ -14,7 +14,8 @@ import '../viewmodels/metabolizma_viewmodel.dart';
 import '../models/models.dart';
 import '../services/patient_service.dart'; 
 import '../services/auth_service.dart'; 
-import 'dart:math'; 
+import 'dart:math';
+import '../widgets/flippable_card.dart';
 
 
 class MetabolizmaScreen extends StatefulWidget {
@@ -36,16 +37,14 @@ class _MetabolizmaScreenState extends State<MetabolizmaScreen> {
       if (widget.initialRecord != null) {
         viewModel.loadPatientData(widget.initialRecord!);
       } else {
-        // Eğer initialRecord null ise ama currentRecordId varsa, onu sakla
         final savedRecordId = viewModel.currentRecordId;
         viewModel.clearAllData();
-        // Eski recordId'yi geri koy (hasta dosyası devamı için)
         if (savedRecordId != null) {
           viewModel.currentRecordId = savedRecordId;
         }
       }
     });
-  }
+}
 
   // --- KAYDETME MANTIKLARI ---
   
@@ -55,146 +54,155 @@ class _MetabolizmaScreenState extends State<MetabolizmaScreen> {
     final authService = Provider.of<AuthService>(context, listen: false);
     final patientService = Provider.of<PatientService>(context, listen: false);
     final scaffoldMessenger = ScaffoldMessenger.of(context);
-    
-    final currentUser = authService.currentUser;
-    final patientName = viewModel.nameController.text.trim(); // Bu String tipindedir.
 
+    final currentUser = authService.currentUser;
+    final patientName = viewModel.nameController.text.trim();
 
     if (currentUser == null) {
-      scaffoldMessenger.showSnackBar(const SnackBar(content: Text('Hata: Oturum bulunamadı.'), backgroundColor: Colors.red));
+      scaffoldMessenger.showSnackBar(
+        const SnackBar(
+          content: Text('Hata: Oturum bulunamadı.'),
+          backgroundColor: Colors.red,
+        ),
+      );
       return;
     }
     if (patientName.isEmpty) {
-      scaffoldMessenger.showSnackBar(const SnackBar(content: Text('Lütfen hasta adı/soyadı girin.'), backgroundColor: Colors.red));
+      scaffoldMessenger.showSnackBar(
+        const SnackBar(
+          content: Text('Lütfen hasta adı/soyadı girin.'),
+          backgroundColor: Colors.red,
+        ),
+      );
       return;
     }
     
-    scaffoldMessenger.showSnackBar(const SnackBar(content: Text('Kayıt başlatılıyor. Harici JSON ve PDF dosyaları için indirme pencereleri açılacaktır...'), duration: Duration(seconds: 5)));
+    scaffoldMessenger.showSnackBar(
+      const SnackBar(
+        content: Text(
+          'Kayıt başlatılıyor. Harici JSON ve PDF dosyaları için indirme pencereleri açılacaktır...'
+        ),
+        duration: Duration(seconds: 5),
+      ),
+    );
 
     try {
-      // Ekranda gösterilen verileri direkt al
       final currentPercentiles = viewModel.calculatedPercentiles;
       print('DEBUG KAYIT: neyziWeightPercentile = ${currentPercentiles.neyziWeightPercentile}');
       print('DEBUG KAYIT: whoWeightPercentile = ${currentPercentiles.whoWeightPercentile}');
       
-      // 1. Kaydedilecek verileri hazırla
       final saveData = await viewModel.prepareSaveData(currentUser.userId);
       final PatientRecord newRecord = saveData.record;
       
-      // 2. YEREL KAYIT (SharedPreferences'a - PatientRecord)
       final PatientRecord savedRecord;
       if (isNewRecord) {
-        // Yeni hasta kaydı oluştur
         savedRecord = await patientService.savePatientRecord(newRecord);
         viewModel.setCurrentRecordId(savedRecord.recordId!);
       } else {
-        // Mevcut kaydı güncelle
         final existingRecordId = viewModel.currentRecordId;
         if (existingRecordId == null) {
-          scaffoldMessenger.showSnackBar(const SnackBar(content: Text('Hata: Mevcut kayıt ID bulunamadı.'), backgroundColor: Colors.red));
+          scaffoldMessenger.showSnackBar(
+            const SnackBar(
+              content: Text('Hata: Mevcut kayıt ID bulunamadı.'),
+              backgroundColor: Colors.red,
+            ),
+          );
           return;
         }
         newRecord.recordId = existingRecordId;
         savedRecord = await patientService.savePatientRecord(newRecord);
       }
       
-      // YENİ EKLENEN KISIM: FA Kan Düzeyi Kaydı (PhenylalanineRecord)
       final pheLevelText = viewModel.pheLevelController.text;
       final pheLevel = double.tryParse(pheLevelText.replaceAll(',', '.')) ?? 0.0;
       final visitDate = viewModel.visitDate;
       
       if (visitDate != null && patientName.isNotEmpty) {
         final newPheRecord = PhenylalanineRecord(
-            patientId: savedRecord.recordId!, // Hasta kaydının ID'sini kullan
-            patientName: patientName,
-            visitDate: visitDate, 
-            pheLevel: pheLevel
+          patientId: savedRecord.recordId!,
+          patientName: patientName,
+          visitDate: visitDate,
+          pheLevel: pheLevel,
         );
-       await patientService.savePheRecord(patientName, newPheRecord);
-    }
-      // YENİ EKLENEN KISIM SONU
+        await patientService.savePheRecord(patientName, newPheRecord);
+      }
 
-      // YENİ EKLENEN KISIM: Tirozin Kan Düzeyi Kaydı (TyrosineRecord)
       final tyrosineLevelText = viewModel.tyrosineLevelController.text;
       final tyrosineLevel = double.tryParse(tyrosineLevelText.replaceAll(',', '.')) ?? 0.0;
       final tyrosineVisitDate = viewModel.tyrosineVisitDate;
       
       if (tyrosineVisitDate != null && patientName.isNotEmpty) {
         final newTyrosineRecord = TyrosineRecord(
-            patientId: savedRecord.recordId!, // Hasta kaydının ID'sini kullan
-            patientName: patientName,
-            visitDate: tyrosineVisitDate, 
-            tyrosineLevel: tyrosineLevel
+          patientId: savedRecord.recordId!,
+          patientName: patientName,
+          visitDate: tyrosineVisitDate,
+          tyrosineLevel: tyrosineLevel,
         );
-       await patientService.saveTyrosineRecord(patientName, newTyrosineRecord);
-    }
-      // TİROZİN KISIM SONU
+        await patientService.saveTyrosineRecord(patientName, newTyrosineRecord);
+      }
       
-      // 3. HARİCİ KAYIT (Kullanıcının seçtiği konuma indirme)
-      String externalJsonPath = "";
-      String externalPdfPath = "";
+      String externalJsonPath = '';
+      String externalPdfPath = '';
       
       final dateStr = DateFormat('yyyyMMdd_HHmmss').format(DateTime.now());
-      final baseFileName = "${patientName.replaceAll(RegExp(r'[\\/:*?"<>|]'), '_')}_Takip_$dateStr";
+      final baseFileName = '${patientName.replaceAll(RegExp(r'[\\/:*?"<>|]'), '_')}_Takip_$dateStr';
       
-      // JSON dosyasını kaydetme/indirme
       try {
-        externalJsonPath = (await FileSaver.instance.saveFile(
+        final String? jsonPath = await FileSaver.instance.saveFile(
           name: baseFileName,
           bytes: saveData.jsonBytes,
           ext: 'json',
           mimeType: MimeType.json,
-        )) ?? "İptal Edildi";
+        );
+        externalJsonPath = jsonPath ?? 'İptal Edildi';
       } catch (e) {
-        externalJsonPath = "HATA: ${e.toString().substring(0, min(50, e.toString().length))}";
+        final message = e.toString();
+        externalJsonPath = 'HATA: ${message.substring(0, min(50, message.length))}';
       }
 
-      // PDF dosyası varsa, onu kaydetme/indirme
       if (saveData.pdfBytes != null) {
         try {
-          externalPdfPath = (await FileSaver.instance.saveFile(
+          final String? pdfPath = await FileSaver.instance.saveFile(
             name: baseFileName,
             bytes: saveData.pdfBytes!,
             ext: 'pdf',
             mimeType: MimeType.pdf,
-          )) ?? "İptal Edildi";
+          );
+          externalPdfPath = pdfPath ?? 'İptal Edildi';
         } catch (e) {
-          externalPdfPath = "HATA: ${e.toString().substring(0, min(50, e.toString().length))}";
+          final message = e.toString();
+          externalPdfPath = 'HATA: ${message.substring(0, min(50, message.length))}';
         }
       }
-      
-      // 4. Record nesnesini harici yollarla güncelle (PatientListScreen'de görünmesi için)
-      savedRecord.pdfFilePath = externalPdfPath;
-      savedRecord.jsonFilePath = externalJsonPath; 
 
-      // 5. Kullanıcıya genel sonucu bildir
+      savedRecord.pdfFilePath = externalPdfPath;
+      savedRecord.jsonFilePath = externalJsonPath;
+
       scaffoldMessenger.hideCurrentSnackBar();
       scaffoldMessenger.showSnackBar(
         SnackBar(
           content: Text(
-              '${patientName} için verileriniz başarıyla kaydedildi (Yerel ve Harici):\n'
-              '- JSON Harici İndirme: ${externalJsonPath.contains("HATA") ? externalJsonPath : (externalJsonPath.isNotEmpty ? "Kaydedildi" : "İptal Edildi")}\n'
-              '- PDF Harici İndirme: ${externalPdfPath.contains("HATA") ? externalPdfPath : (externalPdfPath.isNotEmpty ? "Kaydedildi" : "İptal Edildi/Oluşturulamadı")}'
-          ), 
-          backgroundColor: Colors.green, 
+            '${patientName} için verileriniz başarıyla kaydedildi (Yerel ve Harici):\n'
+            '- JSON Harici İndirme: ${externalJsonPath.contains('HATA') ? externalJsonPath : (externalJsonPath.isNotEmpty ? 'Kaydedildi' : 'İptal Edildi')}\n'
+            '- PDF Harici İndirme: ${externalPdfPath.contains('HATA') ? externalPdfPath : (externalPdfPath.isNotEmpty ? 'Kaydedildi' : 'İptal Edildi/Oluşturulamadı')}'
+          ),
+          backgroundColor: Colors.green,
           duration: const Duration(seconds: 10),
-        )
+        ),
       );
-      
-      // Başarılı kayıttan sonra listeye geri dön
-      Navigator.of(context).pop();
 
+      Navigator.of(context).pop();
     } catch (e) {
       scaffoldMessenger.hideCurrentSnackBar();
       scaffoldMessenger.showSnackBar(
         SnackBar(
-          content: Text('GENEL KAYIT HATASI: ${e.toString().replaceFirst("Exception: ", "")}'), 
+          content: Text('GENEL KAYIT HATASI: ${e.toString().replaceFirst('Exception: ', '')}'),
           backgroundColor: Colors.red,
           duration: const Duration(seconds: 8),
-        )
+        ),
       );
     }
-}
+  }
 
 
   @override
@@ -311,7 +319,7 @@ class _MetabolizmaScreenState extends State<MetabolizmaScreen> {
             ),
             // YENİ: İKİ SÜTUNLU YAPI SONU
             
-            // --- Konsültasyon Bilgileri (YENİ BÖLÜM) ---
+            // --- Biyokimya Takibi (YENİ BÖLÜM) ---
             const Divider(height: 30),
             _buildSectionTitle(context, 'Biyokimya Takibi'),
             Row(
@@ -333,15 +341,16 @@ class _MetabolizmaScreenState extends State<MetabolizmaScreen> {
                       controller: viewModel.visitDateController,
                       keyboardType: TextInputType.datetime,
                       onChanged: (value) {
-                        DateTime? parsedDate;
-                        try {
-                          if (value.length == 10) {
-                            parsedDate = DateFormat('dd.MM.yyyy').parseStrict(value);
-                          }
-                        } catch (_) {
+                        if (value.isEmpty) {
+                          if (viewModel.visitDate != null) viewModel.setVisitDate(null);
+                          return;
                         }
-                        if (viewModel.visitDate != parsedDate) {
-                          viewModel.setVisitDate(parsedDate);
+                        if (value.length != 10) return;
+                        try {
+                          final parsedDate = DateFormat('dd.MM.yyyy').parseStrict(value);
+                          if (viewModel.visitDate != parsedDate) viewModel.setVisitDate(parsedDate);
+                        } catch (_) {
+                          // typing in-progress: don't clear controller
                         }
                       },
                       style: const TextStyle(fontSize: 14.0),
@@ -372,6 +381,23 @@ class _MetabolizmaScreenState extends State<MetabolizmaScreen> {
                               padding: EdgeInsets.zero,
                               constraints: const BoxConstraints(),
                               tooltip: 'Tarihi Temizle',
+                            ),
+                            // Takvim butonu
+                            IconButton(
+                              icon: const Icon(Icons.calendar_today, size: 20),
+                              onPressed: () async {
+                                final DateTime? picked = await showDatePicker(
+                                  context: context,
+                                  initialDate: viewModel.visitDate ?? DateTime.now(),
+                                  firstDate: DateTime(1900),
+                                  lastDate: DateTime(2100),
+                                  locale: const Locale('tr', 'TR'),
+                                );
+                                if (picked != null) viewModel.setVisitDate(picked);
+                              },
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
+                              tooltip: 'Takvimi Aç',
                             ),
                             const SizedBox(width: 8),
                           ],
@@ -479,15 +505,16 @@ class _MetabolizmaScreenState extends State<MetabolizmaScreen> {
                       controller: viewModel.tyrosineVisitDateController,
                       keyboardType: TextInputType.datetime,
                       onChanged: (value) {
-                        DateTime? parsedDate;
-                        try {
-                          if (value.length == 10) {
-                            parsedDate = DateFormat('dd.MM.yyyy').parseStrict(value);
-                          }
-                        } catch (_) {
+                        if (value.isEmpty) {
+                          if (viewModel.tyrosineVisitDate != null) viewModel.setTyrosineVisitDate(null);
+                          return;
                         }
-                        if (viewModel.tyrosineVisitDate != parsedDate) {
-                          viewModel.setTyrosineVisitDate(parsedDate);
+                        if (value.length != 10) return;
+                        try {
+                          final parsedDate = DateFormat('dd.MM.yyyy').parseStrict(value);
+                          if (viewModel.tyrosineVisitDate != parsedDate) viewModel.setTyrosineVisitDate(parsedDate);
+                        } catch (_) {
+                          // typing in-progress
                         }
                       },
                       style: const TextStyle(fontSize: 14.0),
@@ -518,6 +545,23 @@ class _MetabolizmaScreenState extends State<MetabolizmaScreen> {
                               padding: EdgeInsets.zero,
                               constraints: const BoxConstraints(),
                               tooltip: 'Tarihi Temizle',
+                            ),
+                            // Takvim butonu
+                            IconButton(
+                              icon: const Icon(Icons.calendar_today, size: 20),
+                              onPressed: () async {
+                                final DateTime? picked = await showDatePicker(
+                                  context: context,
+                                  initialDate: viewModel.tyrosineVisitDate ?? DateTime.now(),
+                                  firstDate: DateTime(1900),
+                                  lastDate: DateTime(2100),
+                                  locale: const Locale('tr', 'TR'),
+                                );
+                                if (picked != null) viewModel.setTyrosineVisitDate(picked);
+                              },
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
+                              tooltip: 'Takvimi Aç',
                             ),
                             const SizedBox(width: 8),
                           ],
@@ -616,117 +660,213 @@ class _MetabolizmaScreenState extends State<MetabolizmaScreen> {
             // YENİ: Persentil Sonuçlarını Neyzi (solda) ve WHO (sağda) olarak göster
             Visibility(
               visible: hasCalculatedPercentiles,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Ağırlık Persentili - Neyzi (Solda) ve WHO (Sağda)
-                  Row(
+              child: Builder(
+                builder: (context) {
+                  // Merkezi hesaplayıcıdan güncel persentilleri al
+                  final persentilResult = viewModel.persentilCalculator.calculateAllPercentiles(
+                    chronologicalAgeInMonths: viewModel.currentAgeInMonths,
+                    gender: viewModel.selectedGender,
+                    weight: viewModel.currentWeight,
+                    height: viewModel.currentHeight,
+                  );
+                  
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Expanded(
-                        child: _buildDisplayBoxWithBorder(
-                          context,
-                          'Ağırlık Persentili\nNEYZİ',
-                          viewModel.calculatedPercentiles.neyziWeightPercentile,
-                          Colors.orange,
-                          viewModel: viewModel,
-                        ),
+                      // Ağırlık Persentili - Neyzi (Solda) ve WHO (Sağda) - FLIPPABLE
+                      Row(
+                        children: [
+                          Expanded(
+                            child: persentilResult.hasHeightAge
+                                ? FlippableCard(
+                                    onSideChanged: (isFront) => viewModel
+                                        .setWeightCardFace(
+                                            PercentileSource.neyzi, isFront),
+                                    frontChild: _buildDisplayBoxWithBorder(
+                                      context,
+                                      'Ağırlık Persentili\nNEYZİ (Kronolojik)',
+                                      persentilResult.neyziWeightPercentileChronoAge,
+                                      Colors.orange,
+                                      viewModel: viewModel,
+                                    ),
+                                    backChild: _buildDisplayBoxWithBorder(
+                                      context,
+                                      'Ağırlık Persentili\nNEYZİ (Boy Yaşı)',
+                                      persentilResult.neyziWeightPercentileHeightAge,
+                                      Colors.orange,
+                                      viewModel: viewModel,
+                                      useHeightAgeForPercentiles: true,
+                                    ),
+                                  )
+                                : _buildDisplayBoxWithBorder(
+                                    context,
+                                    'Ağırlık Persentili\nNEYZİ',
+                                    persentilResult.neyziWeightPercentileChronoAge,
+                                    Colors.orange,
+                                    viewModel: viewModel,
+                                  ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: viewModel.currentAgeInMonths > 120
+                                ? _buildDisplayBoxWithBorder(
+                                    context,
+                                    'Ağırlık Persentili\nWHO',
+                                    '10 yaşından büyük çocuklar\niçin BKİ kullanınız',
+                                    Colors.blue,
+                                    viewModel: viewModel,
+                                  )
+                                : (persentilResult.hasHeightAge
+                                    ? FlippableCard(
+                                    onSideChanged: (isFront) => viewModel
+                                      .setWeightCardFace(
+                                        PercentileSource.who,
+                                        isFront),
+                                        frontChild: _buildDisplayBoxWithBorder(
+                                          context,
+                                          'Ağırlık Persentili\nWHO (Kronolojik)',
+                                          persentilResult.whoWeightPercentileChronoAge,
+                                          Colors.blue,
+                                          viewModel: viewModel,
+                                        ),
+                                        backChild: _buildDisplayBoxWithBorder(
+                                          context,
+                                          'Ağırlık Persentili\nWHO (Boy Yaşı)',
+                                          persentilResult.whoWeightPercentileHeightAge,
+                                          Colors.blue,
+                                          viewModel: viewModel,
+                                          useHeightAgeForPercentiles: true,
+                                        ),
+                                      )
+                                    : _buildDisplayBoxWithBorder(
+                                        context,
+                                        'Ağırlık Persentili\nWHO',
+                                        persentilResult.whoWeightPercentileChronoAge,
+                                        Colors.blue,
+                                        viewModel: viewModel,
+                                      )),
+                          ),
+                        ],
                       ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: _buildDisplayBoxWithBorder(
-                          context,
-                          'Ağırlık Persentili\nWHO',
-                          viewModel.currentAgeInMonths > 120
-                              ? '10 yaşından büyük çocuklar\niçin BKİ kullanınız'
-                              : viewModel.calculatedPercentiles.whoWeightPercentile,
-                          Colors.blue,
-                          viewModel: viewModel,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
+                      const SizedBox(height: 12),
 
-                  // Boy Persentili - Neyzi (Solda) ve WHO (Sağda)
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _buildDisplayBoxWithBorder(
-                          context,
-                          'Boy Persentili\nNEYZİ',
-                          viewModel.calculatedPercentiles.neyziHeightPercentile,
-                          Colors.orange,
-                          viewModel: viewModel,
-                        ),
+                      // Boy Persentili - Neyzi (Solda) ve WHO (Sağda) - NON-FLIPPABLE
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _buildDisplayBoxWithBorder(
+                              context,
+                              'Boy Persentili\nNEYZİ',
+                              persentilResult.neyziHeightPercentile,
+                              Colors.orange,
+                              viewModel: viewModel,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: _buildDisplayBoxWithBorder(
+                              context,
+                              'Boy Persentili\nWHO',
+                              persentilResult.whoHeightPercentile,
+                              Colors.blue,
+                              viewModel: viewModel,
+                            ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: _buildDisplayBoxWithBorder(
-                          context,
-                          'Boy Persentili\nWHO',
-                          viewModel.calculatedPercentiles.whoHeightPercentile,
-                          Colors.blue,
-                          viewModel: viewModel,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
+                      const SizedBox(height: 12),
 
-                  // BKİ Persentili - Neyzi (Solda) ve WHO (Sağda)
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _buildDisplayBoxWithBorder(
-                          context,
-                          'BKİ Persentili\nNEYZİ',
-                          viewModel.calculatedPercentiles.neyziBmiPercentile,
-                          Colors.orange,
-                          viewModel: viewModel,
-                        ),
+                      // BKİ Persentili - Neyzi (Solda) ve WHO (Sağda) - FLIPPABLE
+                      Row(
+                        children: [
+                          Expanded(
+                            child: persentilResult.hasHeightAge
+                                ? FlippableCard(
+                                    frontChild: _buildDisplayBoxWithBorder(
+                                      context,
+                                      'BKİ Persentili\nNEYZİ (Kronolojik)',
+                                      persentilResult.neyzieBmiPercentileChronoAge,
+                                      Colors.orange,
+                                      viewModel: viewModel,
+                                    ),
+                                    backChild: _buildDisplayBoxWithBorder(
+                                      context,
+                                      'BKİ Persentili\nNEYZİ (Boy Yaşı)',
+                                      persentilResult.neyzieBmiPercentileHeightAge,
+                                      Colors.orange,
+                                      viewModel: viewModel,
+                                      useHeightAgeForPercentiles: true,
+                                    ),
+                                  )
+                                : _buildDisplayBoxWithBorder(
+                                    context,
+                                    'BKİ Persentili\nNEYZİ',
+                                    persentilResult.neyzieBmiPercentileChronoAge,
+                                    Colors.orange,
+                                    viewModel: viewModel,
+                                  ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: persentilResult.hasHeightAge
+                                ? FlippableCard(
+                                    frontChild: _buildDisplayBoxWithBorder(
+                                      context,
+                                      'BKİ Persentili\nWHO (Kronolojik)',
+                                      persentilResult.whoBmiPercentileChronoAge,
+                                      Colors.blue,
+                                      viewModel: viewModel,
+                                    ),
+                                    backChild: _buildDisplayBoxWithBorder(
+                                      context,
+                                      'BKİ Persentili\nWHO (Boy Yaşı)',
+                                      persentilResult.whoBmiPercentileHeightAge,
+                                      Colors.blue,
+                                      viewModel: viewModel,
+                                      useHeightAgeForPercentiles: true,
+                                    ),
+                                  )
+                                : _buildDisplayBoxWithBorder(
+                                    context,
+                                    'BKİ Persentili\nWHO',
+                                    persentilResult.whoBmiPercentileChronoAge,
+                                    Colors.blue,
+                                    viewModel: viewModel,
+                                  ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: _buildDisplayBoxWithBorder(
-                          context,
-                          'BKİ Persentili\nWHO',
-                          viewModel.calculatedPercentiles.whoBmiPercentile,
-                          Colors.blue,
-                          viewModel: viewModel,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
+                      const SizedBox(height: 12),
 
-                  // Boy Yaşı Durumu - Neyzi (Solda) ve WHO (Sağda)
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _buildDisplayBoxWithBorder(
-                          context,
-                          'Boy Yaşı Durumu\nNEYZİ',
-                          viewModel.calculatedPercentiles.neyziHeightAgeStatus,
-                          Colors.orange,
-                          viewModel: viewModel,
-                        ),
+                      // Boy Yaşı Durumu - Neyzi (Solda) ve WHO (Sağda) - NON-FLIPPABLE
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _buildDisplayBoxWithBorder(
+                              context,
+                              'Boy Yaşı Durumu\nNEYZİ',
+                              persentilResult.neyziHeightAgeStatus,
+                              Colors.orange,
+                              viewModel: viewModel,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: _buildDisplayBoxWithBorder(
+                              context,
+                              'Boy Yaşı Durumu\nWHO',
+                              persentilResult.whoHeightAgeStatus,
+                              Colors.blue,
+                              viewModel: viewModel,
+                            ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: _buildDisplayBoxWithBorder(
-                          context,
-                          'Boy Yaşı Durumu\nWHO',
-                          viewModel.calculatedPercentiles.whoHeightAgeStatus,
-                          Colors.blue,
-                          viewModel: viewModel,
-                        ),
-                      ),
+                      const SizedBox(height: 12),
+                      const SizedBox(height: 10),
                     ],
-                  ),
-                  const SizedBox(height: 12),
-                  // CSV Verilerinden Ayrıntılı Değerlendirme Butonu
-                  const SizedBox(height: 10),
-                ],
+                  );
+                }
               ),
             ),
 
@@ -752,7 +892,7 @@ class _MetabolizmaScreenState extends State<MetabolizmaScreen> {
               const SizedBox(height: 10),
               _buildDisplayField(
                 viewModel.percentileWeightController,
-                'Persentil Ağırlık (kg)',
+                'Seçilen Persentil Ağırlığı (kg)',
                 readOnly: true,
                 isDense: false,
               ),
@@ -761,7 +901,7 @@ class _MetabolizmaScreenState extends State<MetabolizmaScreen> {
             const SizedBox(height: 10),
             _buildDisplayField(
               TextEditingController(text: viewModel.calculatedPercentiles.weightPercentile == '-' ? '' : viewModel.calculatedPercentiles.weightPercentile),
-              'Mevcut Ağırlık Persentil Aralığı',
+              'Mevcut Ağırlık Persentil Aralığı(Neyzi/WHO)',
               readOnly: true,
               isDense: false,
             ),
@@ -884,14 +1024,14 @@ class _MetabolizmaScreenState extends State<MetabolizmaScreen> {
 
             // --- Besin Girişi ---
             const Divider(height: 30),
-            _buildSectionTitle(context, 'Besin Girişi'),
+            _buildSectionTitle(context, 'Besin Değişim Tablosu'),
             // Manuel Başlık Satırı
             const Row(children: [
                 Expanded(flex: 3, child: Text('Besin Adı', style: TextStyle(fontWeight: FontWeight.bold))),
                 Expanded(flex: 2, child: Text('Miktar', textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.bold))),
-                Expanded(flex: 2, child: Text('Enerji', textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.bold))),
-                Expanded(flex: 2, child: Text('Protein', textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.bold))),
-                Expanded(flex: 2, child: Text('FA', textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.bold))),
+                Expanded(flex: 2, child: Text('Enerji(kcal)', textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.bold))),
+                Expanded(flex: 2, child: Text('Protein(g)', textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.bold))),
+                Expanded(flex: 2, child: Text('FA(mg)', textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.bold))),
             ],),
              const SizedBox(height: 5),
             ListView.builder(
@@ -1151,15 +1291,18 @@ Widget _buildVisitDatePickerField(BuildContext context, MetabolizmaViewModel vie
           controller: viewModel.visitDateController,
           keyboardType: TextInputType.datetime,
           onChanged: (value) {
-            DateTime? parsedDate;
-            try {
-                if (value.length == 10) { 
-                    parsedDate = DateFormat('dd.MM.yyyy').parseStrict(value);
-                }
-            } catch (_) {
+            // Boşsa temizle
+            if (value.isEmpty) {
+              if (viewModel.visitDate != null) viewModel.setVisitDate(null);
+              return;
             }
-            if (viewModel.visitDate != parsedDate) {
-                viewModel.setVisitDate(parsedDate); 
+            // Sadece tam GG.AA.YYYY uzunluğu geldiğinde parse etmeye çalış
+            if (value.length != 10) return;
+            try {
+              final parsedDate = DateFormat('dd.MM.yyyy').parseStrict(value);
+              if (viewModel.visitDate != parsedDate) viewModel.setVisitDate(parsedDate);
+            } catch (_) {
+              // Geçersiz format: yazmaya devam edilirken controller'ı temizleme
             }
           },
           style: const TextStyle(
@@ -1185,7 +1328,7 @@ Widget _buildVisitDatePickerField(BuildContext context, MetabolizmaViewModel vie
             ),
             isDense: true,
             contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
-            suffixIcon: Row(
+                        suffixIcon: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 // Temizleme butonu
@@ -1195,6 +1338,23 @@ Widget _buildVisitDatePickerField(BuildContext context, MetabolizmaViewModel vie
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(),
                   tooltip: 'Tarihi Temizle',
+                ),
+                // Takvim butonu
+                IconButton(
+                  icon: const Icon(Icons.calendar_today, size: 20),
+                  onPressed: () async {
+                    final DateTime? picked = await showDatePicker(
+                      context: context,
+                      initialDate: viewModel.visitDate ?? DateTime.now(),
+                      firstDate: DateTime(1900),
+                      lastDate: DateTime(2100),
+                      locale: const Locale('tr', 'TR'),
+                    );
+                    if (picked != null) viewModel.setVisitDate(picked);
+                  },
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                  tooltip: 'Takvimi Aç',
                 ),
                 const SizedBox(width: 8),
               ],
@@ -1327,7 +1487,24 @@ Widget _buildVisitDatePickerField(BuildContext context, MetabolizmaViewModel vie
     );
   }
 
-  Widget _buildDisplayBoxWithBorder(BuildContext context, String label, String value, Color borderColor, {MetabolizmaViewModel? viewModel}) {
+  String _formatAgeNoteFromMonths(int months) {
+    if (months < 12) {
+      return "$months Ay";
+    }
+    final ageInYears = (months / 12.0).toStringAsFixed(1);
+    return "$ageInYears Yıl ($months Ay)";
+  }
+
+  Widget _buildDisplayBoxWithBorder(
+    BuildContext context,
+    String label,
+    String value,
+    Color borderColor,
+    {
+      MetabolizmaViewModel? viewModel,
+      bool useHeightAgeForPercentiles = false,
+    }
+  ) {
     // Grafik tipi belirleme
     String? chartType;
     if (label.contains('Ağırlık Persentili')) {
@@ -1342,58 +1519,14 @@ Widget _buildVisitDatePickerField(BuildContext context, MetabolizmaViewModel vie
     
     // YAŞ BİLGİSİ NOTU OLUŞTUR
     String? ageNote;
-    if (viewModel != null) {
-      // Ağırlık ve BKİ persentilleri için yaş notu
-      if (label.contains('Ağırlık Persentili') || label.contains('BKİ Persentili')) {
-        if (viewModel.calculatedHeightAgeInMonths != -1) {
-          final ageInYears = viewModel.calculatedHeightAgeInMonths < 12 
-              ? "0" 
-              : (viewModel.calculatedHeightAgeInMonths / 12.0).toStringAsFixed(1);
-          final displayAge = viewModel.calculatedHeightAgeInMonths < 12 
-              ? "${viewModel.calculatedHeightAgeInMonths} Ay"
-              : "$ageInYears Yıl (${viewModel.calculatedHeightAgeInMonths} Ay)";
-          ageNote = "Boy Yaşına Göre ($displayAge)";
-        } else if (viewModel.dateOfBirth != null) {
-          final now = viewModel.visitDate ?? DateTime.now();
-          final birthDate = viewModel.dateOfBirth!;
-          int years = now.year - birthDate.year;
-          int remainingMonths = now.month - birthDate.month;
-          if (remainingMonths < 0) {
-            years--;
-            remainingMonths += 12;
-          }
-          if (now.day < birthDate.day && remainingMonths > 0) {
-            remainingMonths--;
-          }
-          final totalMonths = (years * 12) + remainingMonths;
-          final ageInYears = totalMonths < 12 ? "0" : (totalMonths / 12.0).toStringAsFixed(1);
-          final displayAge = totalMonths < 12 
-              ? "$totalMonths Ay"
-              : "$ageInYears Yıl ($totalMonths Ay)";
-          ageNote = "Kronolojik Yaşa Göre ($displayAge)";
-        }
-      }
-      // Boy persentili için her zaman kronolojik yaş
-      else if (label.contains('Boy Persentili')) {
-        if (viewModel.dateOfBirth != null) {
-          final now = viewModel.visitDate ?? DateTime.now();
-          final birthDate = viewModel.dateOfBirth!;
-          int years = now.year - birthDate.year;
-          int remainingMonths = now.month - birthDate.month;
-          if (remainingMonths < 0) {
-            years--;
-            remainingMonths += 12;
-          }
-          if (now.day < birthDate.day && remainingMonths > 0) {
-            remainingMonths--;
-          }
-          final totalMonths = (years * 12) + remainingMonths;
-          final ageInYears = totalMonths < 12 ? "0" : (totalMonths / 12.0).toStringAsFixed(1);
-          final displayAge = totalMonths < 12 
-              ? "$totalMonths Ay"
-              : "$ageInYears Yıl ($totalMonths Ay)";
-          ageNote = "Kronolojik Yaşa Göre ($displayAge)";
-        }
+    if (viewModel != null && label.contains('Boy Persentili')) {
+      final bool isNeyziCard = label.contains('NEYZİ');
+      final int heightAgeMonths = isNeyziCard
+          ? viewModel.calculatedHeightAgeInMonths
+          : viewModel.whoHeightAgeInMonths;
+      if (heightAgeMonths > -1) {
+        final displayAge = _formatAgeNoteFromMonths(heightAgeMonths);
+        ageNote = "Boy Yaşına Göre ($displayAge)";
       }
     }
     
@@ -1631,13 +1764,14 @@ Widget _buildVisitDatePickerField(BuildContext context, MetabolizmaViewModel vie
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 12),
-              _buildPercentileValues(context, viewModel, label, borderColor, value),
+              _buildPercentileValues(context, viewModel, label, borderColor, value, useHeightAgeForPercentiles: useHeightAgeForPercentiles),
             ],
           );
         },
       ),
-      // Yaş notu - Sol üst köşe (Responsive)
-      if (ageNote != null)
+      // Yaş notu - Sol üst köşe (Responsive) - Sadece non-flippable kartlarda göster
+      // Flippable kartlarda (label'da "Kronolojik" veya "Boy Yaşı" varsa) ageNote gösterme
+      if (ageNote != null && !label.contains('Kronolojik') && !label.contains('Boy Yaşı'))
         Positioned(
           top: 0,
           left: 0,
@@ -1682,15 +1816,21 @@ Widget _buildVisitDatePickerField(BuildContext context, MetabolizmaViewModel vie
     );
   }
 
-  Widget _buildPercentileValues(BuildContext context, MetabolizmaViewModel? viewModel, String label, Color borderColor, String value) {
+  Widget _buildPercentileValues(
+    BuildContext context,
+    MetabolizmaViewModel? viewModel,
+    String label,
+    Color borderColor,
+    String value, {
+    bool useHeightAgeForPercentiles = false,
+  }) {
     if (viewModel == null) {
       return const SizedBox.shrink();
     }
-    
-    // Hangi tip persentil olduğunu belirle
+
     String? dataType;
     String? source;
-    
+
     if (label.contains('Ağırlık Persentili')) {
       dataType = 'weight';
       source = label.contains('NEYZİ') ? 'neyzi' : 'who';
@@ -1710,46 +1850,50 @@ Widget _buildVisitDatePickerField(BuildContext context, MetabolizmaViewModel vie
       return const SizedBox.shrink();
     }
 
-    // Yaş bilgisini al
-    int ageInMonths = 0;
-    if (viewModel.dateOfBirth != null) {
-      final now = viewModel.visitDate ?? DateTime.now();
-      final birthDate = viewModel.dateOfBirth!;
-      int years = now.year - birthDate.year;
-      int remainingMonths = now.month - birthDate.month;
-      if (remainingMonths < 0) {
-        years--;
-        remainingMonths += 12;
-      }
-      if (now.day < birthDate.day && remainingMonths > 0) {
-        remainingMonths--;
-      }
-      ageInMonths = (years * 12) + remainingMonths;
-    }
-
     final gender = viewModel.selectedGender;
-    
-    if (gender.isEmpty || ageInMonths < 0) {
+    if (gender.isEmpty) {
       return const SizedBox.shrink();
     }
 
-    int referenceAgeInMonths = ageInMonths;
-    final bool useHeightAge = label.contains('Boy Yaşı Durumu') && viewModel.calculatedHeightAgeInMonths > -1;
-    if (useHeightAge) {
-      referenceAgeInMonths = viewModel.calculatedHeightAgeInMonths;
+    int chronologicalAgeInMonths = viewModel.currentAgeInMonths;
+    final int? recordAgeInMonths = viewModel.currentRecord?.chronologicalAgeInMonths;
+    if (chronologicalAgeInMonths <= 0 && (recordAgeInMonths ?? 0) > 0) {
+      chronologicalAgeInMonths = recordAgeInMonths!;
     }
 
-    int? heightAgeMonths;
-    final bool isHeightAgeBox = label.contains('Boy Yaşı Durumu');
-    if (isHeightAgeBox) {
-      final int candidateHeightAgeMonths = source == 'neyzi'
-          ? viewModel.calculatedHeightAgeInMonths
-          : viewModel.whoHeightAgeInMonths;
-      if (candidateHeightAgeMonths > -1) {
-        referenceAgeInMonths = candidateHeightAgeMonths;
-        heightAgeMonths = candidateHeightAgeMonths;
+    if (chronologicalAgeInMonths <= 0 && viewModel.dateOfBirth != null) {
+      final referenceDate = viewModel.visitDate ?? DateTime.now();
+      final birthDate = viewModel.dateOfBirth!;
+      int years = referenceDate.year - birthDate.year;
+      int months = referenceDate.month - birthDate.month;
+      if (months < 0) {
+        years--;
+        months += 12;
       }
+      if (referenceDate.day < birthDate.day && months > 0) {
+        months--;
+      }
+      chronologicalAgeInMonths = (years * 12) + months;
     }
+
+    if (chronologicalAgeInMonths <= 0) {
+      return const SizedBox.shrink();
+    }
+
+    int referenceAgeInMonths = chronologicalAgeInMonths;
+    final bool isHeightAgeBox = label.contains('Boy Yaşı Durumu');
+    final int? neyzHeightAge =
+        viewModel.calculatedHeightAgeInMonths > -1 ? viewModel.calculatedHeightAgeInMonths : null;
+    final int? whoHeightAge =
+        viewModel.whoHeightAgeInMonths > -1 ? viewModel.whoHeightAgeInMonths : null;
+    final int? candidateHeightAgeMonths = source == 'who' ? whoHeightAge : neyzHeightAge;
+
+    if ((useHeightAgeForPercentiles || isHeightAgeBox) && candidateHeightAgeMonths != null) {
+      referenceAgeInMonths = candidateHeightAgeMonths;
+    }
+
+    final String? ageLabel =
+        referenceAgeInMonths > 0 ? _formatAgeForDisplay(referenceAgeInMonths) : null;
 
     return FutureBuilder<Map<String, double>>(
       future: _getPercentileValuesFromCSV(source, dataType, gender, referenceAgeInMonths),
@@ -1813,20 +1957,31 @@ Widget _buildVisitDatePickerField(BuildContext context, MetabolizmaViewModel vie
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
                       Expanded(
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
-                            if (heightAgeMonths != null && heightAgeMonths > -1) ...[
+                            if (ageLabel != null) ...[
                               Text(
-                                '$heightAgeMonths Ay',
-                                style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w600, color: Colors.black54),
+                                ageLabel,
+                                style: const TextStyle(
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.black87,
+                                ),
                                 textAlign: TextAlign.center,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
                               ),
-                              const SizedBox(width: 4),
+                              const SizedBox(height: 6),
                             ],
                             Text(
                               unit,
-                              style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.black87),
+                              style: const TextStyle(
+                                fontSize: 9,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.black87,
+                              ),
                               textAlign: TextAlign.center,
                             ),
                           ],
@@ -2048,6 +2203,24 @@ Widget _buildVisitDatePickerField(BuildContext context, MetabolizmaViewModel vie
     return {};
   }
 
+  String _formatAgeForDisplay(int totalMonths) {
+    if (totalMonths <= 0) {
+      return '0 Ay';
+    }
+    if (totalMonths < 12) {
+      return '$totalMonths Ay';
+    }
+
+    final int years = totalMonths ~/ 12;
+    final int months = totalMonths % 12;
+
+    if (months == 0) {
+      return '$years Yaş ($totalMonths Ay)';
+    }
+
+    return '$years Yaş $months Ay ($totalMonths Ay)';
+  }
+
   // YENİ WIDGET: Enerji Gereksinimini Checkbox'li satir olarak olusturur
   Widget _buildEnergyRequirementRow(
     BuildContext context, 
@@ -2107,22 +2280,17 @@ Widget _buildVisitDatePickerField(BuildContext context, MetabolizmaViewModel vie
           keyboardType: TextInputType.datetime,
           // ÖNEMLİ DÜZELTME: Doğum tarihi girildiğinde veya değiştirildiğinde hesaplamaları tetikle
           onChanged: (value) {
-            // Sadece formatlama ile uğraşmak yerine, ViewModel'e tarihi parse etme işini bırakıyoruz
-            // ve tüm hesaplamaları yeniden tetikliyoruz.
-            DateTime? parsedDate;
+            if (value.isEmpty) {
+              if (viewModel.dateOfBirth != null) viewModel.setDateOfBirth(null);
+              return;
+            }
+            if (value.length != 10) return;
             try {
-                if (value.length == 10) { // GG.AA.YYYY formatında tam uzunluk
-                    parsedDate = DateFormat('dd.MM.yyyy').parseStrict(value);
-                }
+              final parsedDate = DateFormat('dd.MM.yyyy').parseStrict(value);
+              if (viewModel.dateOfBirth != parsedDate) viewModel.setDateOfBirth(parsedDate);
             } catch (_) {
-                // Hatalı format, parsedDate null kalır
+              // Geçersiz format - yazma devam ederken controller'ı temizleme
             }
-            // Hesaplamaları tetiklemek için ViewModel'e bilgi verilir
-            if (viewModel.dateOfBirth != parsedDate) {
-                viewModel.setDateOfBirth(parsedDate); // Bu, ViewModel'in içindeki _performAndUpdatePersonalCalculations'ı tetikler
-            }
-            
-            // Eğer tarih geçerli değilse bile, kullanıcının girdiği text controller'da kalır.
           },
           style: const TextStyle(
             fontSize: 14.0, 
@@ -2231,7 +2399,7 @@ Widget _buildVisitDatePickerField(BuildContext context, MetabolizmaViewModel vie
                     const SizedBox(height: 10),
                     _buildCheckboxTile(
                         context, 
-                        "WHO Persentili", 
+                        "WHO Persentilinden Ağırlık Kullan", 
                         currentSource == WeightSource.whoPercentile, 
                         (newValue) => handleCheckboxChange(WeightSource.whoPercentile, newValue)
                     ),
@@ -2246,14 +2414,14 @@ Widget _buildVisitDatePickerField(BuildContext context, MetabolizmaViewModel vie
                   children: [
                     _buildCheckboxTile(
                         context, 
-                        "Diyetisyen Ağırlığını Kullan", 
+                        "Diyetisyenin Girdiği Ağırlığını Kullan", 
                         currentSource == WeightSource.manual, 
                         (newValue) => handleCheckboxChange(WeightSource.manual, newValue)
                     ),
                     const SizedBox(height: 10),
                     _buildCheckboxTile(
                         context, 
-                        "Neyzi Persentili", 
+                        "Neyzi Persentilinden Ağırlık Kullan", 
                         currentSource == WeightSource.neyziPercentile, 
                         (newValue) => handleCheckboxChange(WeightSource.neyziPercentile, newValue)
                     ),
@@ -3339,41 +3507,36 @@ class _DateTextFormatter extends TextInputFormatter {
     TextEditingValue oldValue,
     TextEditingValue newValue,
     ) {
-    String text = newValue.text;
+    final String raw = newValue.text;
+    final String cleanText = raw.replaceAll(RegExp(r'[^\d]'), '');
+
+    // Yeni metni oluştur (GG.AA.YYYY)
     String newText = '';
-    
-    // Sadece sayıları al
-    final cleanText = text.replaceAll(RegExp(r'[^\d]'), ''); 
-    
-    // Yeni metni oluştur
-    for (int i = 0; i < cleanText.length; i++) {
+    for (int i = 0; i < cleanText.length && i < 8; i++) {
       newText += cleanText[i];
-      
-      if (i == 1 || i == 3) { // GG.AA.YYYY formatında 2. ve 4. karakterden sonra nokta koy
-        if (i + 1 != cleanText.length) {
-          newText += '.';
-        }
+      if (i == 1 || i == 3) {
+        if (i + 1 != cleanText.length) newText += '.';
       }
-      
-      if (i >= 7) break; // Toplamda 8 sayı (10 karakter) yeter
-    }
-    
-    // İmlecin konumunu düzeltme mantığı:
-    int newCursorPosition = newText.length;
-    
-    // Geri silme işlemi sırasında imlecin yerini koru
-    if (oldValue.text.length > newValue.text.length) {
-        newCursorPosition = newValue.selection.end;
-    } else {
-        // İlerleme sırasında imlecin nokta sonrasına sıçramasını sağla
-        newCursorPosition = newValue.selection.end;
-        if (newCursorPosition == 3 && cleanText.length > 2) newCursorPosition++;
-        if (newCursorPosition == 6 && cleanText.length > 4) newCursorPosition++;
     }
 
-    // Maksimum uzunluğu sınırla (10: GG.AA.YYYY)
-    if (newText.length > 10) {
-        newText = newText.substring(0, 10);
+    // Sınırla
+    if (newText.length > 10) newText = newText.substring(0, 10);
+
+    int newCursorPosition;
+
+    if (oldValue.text.length > newValue.text.length) {
+      // Silme işlemi: mümkün olan yerde yeni selection'ı koru (ve sınırla)
+      newCursorPosition = newValue.selection.end;
+      if (newCursorPosition > newText.length) newCursorPosition = newText.length;
+    } else {
+      // Ekleme/ilerleme: genellikle imleci metnin sonuna koy
+      newCursorPosition = newValue.selection.end;
+      // Nokta eklenmesi nedeniyle sıçrama gerekiyorsa ayarla
+      if (newCursorPosition == 3 && cleanText.length > 2) newCursorPosition++;
+      if (newCursorPosition == 6 && cleanText.length > 4) newCursorPosition++;
+      if (newCursorPosition > newText.length) newCursorPosition = newText.length;
+      // Eğer selection 0 ise (bazı platformlarda) ve metin var ise son konuma al
+      if (newCursorPosition == 0 && newText.isNotEmpty) newCursorPosition = newText.length;
     }
 
     return TextEditingValue(
